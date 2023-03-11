@@ -116,7 +116,7 @@ fn calc_voltage(
     let mut substep: u32;
     let steps_in_substeps: u32 = 4;
     let mut subdt: f32;
-    //let _idx: usize =0;
+
     let mut q_cap: f32 = 0.0;
     let mut v_cap: f32;
     let mut v_src: f32 = 0.0;
@@ -152,6 +152,7 @@ fn calc_voltage(
             //     self.I_charge = (self.V_stack-self.V_cap)/self.R_1;
             //self.P_stack_input = self.V_stack * self.I_charge;
             state_of_charge = q_cap;
+            
             // self.Q_cap = self.Q_cap * CAP_LOSS
             // self.C = self.C * CAP_LOSS # Simulate capacity loss
 
