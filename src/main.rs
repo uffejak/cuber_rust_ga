@@ -193,7 +193,7 @@ impl TIndivid {
             let mut noise: f32 = 0.0;
             let tal = self.genes[p].to_owned();
             if get_random() < mutation_rate {
-                noise = ((current_gen as f32) / (max_gen as f32)) * mutation_intensity * delta;
+                noise = ((1.0 -(current_gen as f32) / (max_gen as f32))) * mutation_intensity * delta;
                     //- (delta * 0.5 as f32);
                     self.genes[p] = tilfaeldighed_begraenset(tal - noise, tal + noise);
             } else {
