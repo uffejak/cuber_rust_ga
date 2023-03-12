@@ -66,7 +66,7 @@ type TGene = Vec<f32>;
 // the model needs capacity in Farad and Resistance in Ohm
 //let GENE_MAX :Vec<f32>= vec![10000.0, 100.0]; //not const since vec![] is dynamic alloc
 //let GENE_MIN :Vec<f32>= vec![0.1, 0.1]; //not const since vec![] is dynamic alloc
-static GENE_MAX: &'static [f32] = &[10000.0, 1000.0]; //cap, res
+static GENE_MAX: &'static [f32] = &[10000.0, 100.0]; //cap, res
 static GENE_MIN: &'static [f32] = &[0.1, 0.1];
 /// freepascal: const GENE_MIN : Array [0..1] of single = (0.1, 0.1);
 
@@ -193,10 +193,12 @@ impl TIndivid {
             let mut noise: f32 = 0.0;
             let tal = self.genes[p].to_owned();
             if get_random() < mutation_rate {
-                noise = ((current_gen as f32) / (max_gen as f32)) * mutation_intensity * delta
-                    - (delta * 0.5 as f32);
+                noise = ((current_gen as f32) / (max_gen as f32)) * mutation_intensity * delta;
+                    //- (delta * 0.5 as f32);
+                    self.genes[p] = tilfaeldighed_begraenset(tal - noise, tal + noise);
+            } else {
+                self.genes[p] = tal;
             }
-            self.genes[p] = tilfaeldighed_begraenset(tal - noise, tal + noise);
         }
     }
     pub fn limit_values(&mut self) {
@@ -340,8 +342,8 @@ impl TPopulation {
 const ELITE_PART: f32 = 0.1;
 const CROSSOVER_PART: f32 = 0.6;
 const POPULATION_SIZE: u32 = 500;
-const MAX_GENERATIONS: u32 = 15;
-const MUTATION_INTENSITY: f32 = 0.1;
+const MAX_GENERATIONS: u32 = 20;
+const MUTATION_INTENSITY: f32 = 0.5;
 const MUTATION_RATE: f32 = 0.5;
 
 pub(crate) fn main() {
