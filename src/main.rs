@@ -1,3 +1,8 @@
+//License:
+//This project uses The boost license.
+//https://www.boost.org/users/license.html
+//
+
 use rand::Rng;
 use std::fs::File;
 
@@ -9,6 +14,7 @@ use std::io::prelude::*;
 use std::io::Write;
 use std::path::PathBuf;
 
+
 fn get_random() -> f32 {
     //    let t = StudentT::new(11.0).unwrap();
     //    let v = t.sample(&mut rand::thread_rng());
@@ -17,7 +23,7 @@ fn get_random() -> f32 {
     return v;
 }
 
-fn tilfaeldighed_begraenset(min: f32, max: f32) -> f32 {
+fn random_limited(min: f32, max: f32) -> f32 {
     return (get_random()) * (max - min) + min;
 }
 
@@ -195,7 +201,7 @@ impl TIndivid {
             if get_random() < mutation_rate {
                 noise = ((1.0 -(current_gen as f32) / (max_gen as f32))) * mutation_intensity * delta;
                     //- (delta * 0.5 as f32);
-                    self.genes[p] = tilfaeldighed_begraenset(tal - noise, tal + noise);
+                    self.genes[p] = random_limited(tal - noise, tal + noise);
             } else {
                 self.genes[p] = tal;
             }
