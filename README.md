@@ -7,3 +7,7 @@ Contains ideas borrowed from gradient descent and simulated annealing.
 This project has received funding from the European Union’s Horizon 2020 research and innovation programme under Grant Agreement no. 875605.
 The results presented on this website reflect only CuBER’s view. The European Commission is not responsible for
 any use that may be made of the information it contains.
+
+# License
+This project uses The boost license.
+https://www.boost.org/users/license.html
