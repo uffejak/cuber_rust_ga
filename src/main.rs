@@ -106,11 +106,9 @@ fn calc_voltage(
     resistance: f32,
 ) -> f32 {
     //let mut file:File ;
-<<<<<<< HEAD
+
     let mut temp_file = PathBuf::from("unused.txt"); //Hack since append does not work the same way
-=======
-    let mut temp_file = PathBuf::from("rust_is_a_poor_language.txt"); //Hack since append does not work the same way
->>>>>>> b392fe1f3b183007fa96c92a417c2a6dead2c2d2
+
     if store_result {
         temp_file = PathBuf::from(filepath); //party like it is 198x
     };
@@ -120,11 +118,7 @@ fn calc_voltage(
     let mut substep: u32;
     let steps_in_substeps: u32 = 4;
     let mut subdt: f32;
-<<<<<<< HEAD
 
-=======
-    //let _idx: usize =0;
->>>>>>> b392fe1f3b183007fa96c92a417c2a6dead2c2d2
     let mut q_cap: f32 = 0.0;
     let mut v_cap: f32;
     let mut v_src: f32 = 0.0;
@@ -159,12 +153,8 @@ fn calc_voltage(
             //     print("Vstack < 0 with I_charge = " + str(self.I_charge))
             //     self.I_charge = (self.V_stack-self.V_cap)/self.R_1;
             //self.P_stack_input = self.V_stack * self.I_charge;
-<<<<<<< HEAD
             state_of_charge = q_cap;
-            
-=======
-            state_of_charge = v_cap * q_cap;
->>>>>>> b392fe1f3b183007fa96c92a417c2a6dead2c2d2
+
             // self.Q_cap = self.Q_cap * CAP_LOSS
             // self.C = self.C * CAP_LOSS # Simulate capacity loss
 
