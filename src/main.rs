@@ -9,8 +9,8 @@ use std::fs::File;
 use close_file::Closable;
 
 use serde::Deserialize;
-use std::fs::OpenOptions;
-use std::io::prelude::*;
+//use std::fs::OpenOptions;
+//use std::io::prelude::*;
 use std::io::Write;
 use std::path::PathBuf;
 
@@ -72,13 +72,14 @@ type TGene = Vec<f32>;
 // the model needs capacity in Farad and Resistance in Ohm
 //let GENE_MAX :Vec<f32>= vec![10000.0, 100.0]; //not const since vec![] is dynamic alloc
 //let GENE_MIN :Vec<f32>= vec![0.1, 0.1]; //not const since vec![] is dynamic alloc
-static GENE_MAX: &'static [f32] = &[10000000.0, 10.0, 1000000.0]; //cap, res, charge_zero
-static GENE_MIN: &'static [f32] = &[1000.0, 0.00001, 0.0001];
+static GENE_MAX: &'static [f32] = &[10000000.0, 10.0, 100000.0, 1.0]; //cap, res, charge_zero capacitance_decay(1.0=none)
+static GENE_MIN: &'static [f32] = &[1000.0, 0.00001, 0.0001, 0.95];
 /// freepascal: const GENE_MIN : Array [0..1] of single = (0.1, 0.1);
-const cap_idx:usize = 0;
+const CAP_IDX:usize = 0;
 const res_idx:usize = 1;
 const qzero_idx:usize = 2;
-const NUM_OF_GENES: u16 = 3;
+const CAP_DECAY_IDX : usize = 3;
+const NUM_OF_GENES: u16 = 4;
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub struct TIndivid {
@@ -106,6 +107,10 @@ pub fn read_csv(filepath: &str) -> TDataFrame {
     TDataFrame { rows }
 }
 
+const WORST_FITNESS:f32 = 100000.0;
+const BEST_FITNESS:f32 = 0.001;
+
+//const CAP_DECAY:f32 = 0.999;
 fn calc_voltage(
     filepath: &str,
     store_result: bool,
@@ -113,6 +118,7 @@ fn calc_voltage(
     capacitance: f32,
     resistance: f32,
     qzero:f32,
+    cap_decay:f32
 ) -> f32 {
     //let mut file:File ;
 
@@ -134,6 +140,7 @@ fn calc_voltage(
     let mut fitness: f32 = 0.0;
     let mut state_of_charge: f32;
     let mut clocktime: f32 = sim_data.rows[0].time;
+    let mut runtime_capacitance: f32 = capacitance;
     for idx in 1..sim_data.rows.len() {
         substep = 0;
         let dt: f32 = sim_data.rows[idx].time - sim_data.rows[idx - 1].time;
@@ -154,8 +161,9 @@ fn calc_voltage(
             //     self.I_charge = 0
             //     print("Qcap < 0")
             // else:
-            v_cap = q_cap / capacitance;
+            v_cap = q_cap / runtime_capacitance;
 
+            runtime_capacitance *= cap_decay*subdt;
             v_src = v_cap + i_charge * resistance;
             // if self.V_stack < 0:
             //     self.V_stack = 0;
@@ -181,6 +189,8 @@ fn calc_voltage(
     if store_result {
         let mut _resultat = file.close(); //closing of files is handled different from most languages as a separate set of errors (see: https://docs.rs/close-file/latest/close_file/ )
     }
+    if fitness < BEST_FITNESS {fitness = BEST_FITNESS}
+    if fitness > WORST_FITNESS  {fitness = WORST_FITNESS;}
     return fitness;
 }
 
@@ -232,10 +242,11 @@ impl TIndivid {
         filepath: &str,
         store_result: bool,
     ) -> f32 {
-        let capacitance: f32 = self.genes[cap_idx];
+        let capacitance: f32 = self.genes[CAP_IDX];
         let resistance: f32 = self.genes[res_idx];
         let qzero: f32 = self.genes[qzero_idx];
-        self.fitness = calc_voltage(filepath, store_result, sim_data, capacitance, resistance,qzero);
+        let capdecay:f32 = self.genes[CAP_DECAY_IDX];
+        self.fitness = calc_voltage(filepath, store_result, sim_data, capacitance, resistance,qzero,capdecay);
         return self.fitness;
     }
     pub fn make_random_genome(&mut self) {
@@ -342,11 +353,12 @@ impl TPopulation {
         for p in 0..self.population.len() {
             writeln!(
                 &mut file,
-                "{},{},{},{}",
+                "{},{},{},{},{}",
                 self.population[p].fitness,
-                self.population[p].genes[cap_idx],
+                self.population[p].genes[CAP_IDX],
                 self.population[p].genes[res_idx],
-                self.population[p].genes[qzero_idx]
+                self.population[p].genes[qzero_idx],
+                self.population[p].genes[CAP_DECAY_IDX]
             )
             .unwrap();
         }
@@ -356,14 +368,12 @@ impl TPopulation {
 
 const ELITE_PART: f32 = 0.05;
 const CROSSOVER_PART: f32 = 0.2;
-const POPULATION_SIZE: u32 = 5000;
-const MAX_GENERATIONS: u32 = 50;
+const POPULATION_SIZE: u32 = 4000;
+const MAX_GENERATIONS: u32 = 20;
 const MUTATION_INTENSITY: f32 = 0.75;
 const MUTATION_RATE: f32 = 0.5;
-
 const MUT_GENERATION_SCALING: f32 = 0.75;
 const MUT_GENERATION_OFFSET:  f32 = 0.5;
-
 
 pub(crate) fn main() {
     println!("Read CSV");
@@ -397,8 +407,8 @@ pub(crate) fn main() {
         //println!(".");
         pop.sort_population();
         println!(
-            "  current best: fitness={}, Capacitance = {} , Resistance={} , Q_zero={}",
-            pop.population[0].fitness, pop.population[0].genes[cap_idx], pop.population[0].genes[res_idx], pop.population[0].genes[qzero_idx]
+            "  current best: fitness={}, Capacitance = {} , Resistance={} , Q_zero={}, CAP_decay={}",
+            pop.population[0].fitness, pop.population[0].genes[CAP_IDX], pop.population[0].genes[res_idx], pop.population[0].genes[qzero_idx], pop.population[0].genes[CAP_DECAY_IDX]
         );
         //pop.print_population();
         let elite_idx = (pop.population.len() as f32 * ELITE_PART) as u32;
@@ -437,17 +447,14 @@ pub(crate) fn main() {
     //Store results
     pop.dump_to_file("last_generation.csv");
 //    println! {"Estimated capacitance {}, estimated resistance {}", pop.population[0].genes[0], pop.population[0].genes[1]};
-    println!(
-        "  current best: fitness={}, Capacitance = {} , Resistance={} , Q_zero={}",
-        pop.population[0].fitness, pop.population[0].genes[cap_idx], pop.population[0].genes[res_idx], pop.population[0].genes[qzero_idx]
-    );
     let mut _fitness = calc_voltage(
         "best_result.csv",
         true,
         sim_data.to_owned(),
-        pop.population[0].genes[cap_idx],
+        pop.population[0].genes[CAP_IDX],
         pop.population[0].genes[res_idx],
         pop.population[0].genes[qzero_idx],
+        pop.population[0].genes[CAP_DECAY_IDX],
     );
     println!("Done! (Caveat Emptor)");
 }

@@ -22,19 +22,13 @@ ylabel('Voltage [V]');
 grid minor
 hold on
 switch_pos = [13 320 484 661 784 917 1013 1119 1195 1281 1337];
-% xline(13,'LineStyle','--','LineWidth',2.0,'Alpha',0.5,'Color',[0.4 0.6 1.0])
-% xline(320,'LineStyle','--','LineWidth',2.0,'Alpha',0.5,'Color',[0.4 0.6 1.0])
-% xline(484,'LineStyle','--','LineWidth',2.0,'Alpha',0.5,'Color',[0.4 0.6 1.0])
-% xline(661,'LineStyle','--','LineWidth',2.0,'Alpha',0.5,'Color',[0.4 0.6 1.0])
-% xline(784,'LineStyle','--','LineWidth',2.0,'Alpha',0.5,'Color',[0.4 0.6 1.0])
-% xline(917,'LineStyle','--','LineWidth',2.0,'Alpha',0.5,'Color',[0.4 0.6 1.0])
-% xline(1013,'LineStyle','--','LineWidth',2.0,'Alpha',0.5,'Color',[0.4 0.6 1.0])
-% xline(1119,'LineStyle','--','LineWidth',2.0,'Alpha',0.5,'Color',[0.4 0.6 1.0])
-% xline(1195,'LineStyle','--','LineWidth',2.0,'Alpha',0.5,'Color',[0.4 0.6 1.0])
-% xline(1281,'LineStyle','--','LineWidth',2.0,'Alpha',0.5,'Color',[0.4 0.6 1.0])
-% xline(1337,'LineStyle','--','LineWidth',2.0,'Alpha',0.5,'Color',[0.4 0.6 1.0])
+xline(switch_pos,'LineStyle','-.' ,'LineWidth',2.0,'Alpha',0.5,'Color',[0.4 0.6 1.0])
 
-xline(switch_pos,'LineStyle','--','LineWidth',2.0,'Alpha',0.5,'Color',[0.4 0.6 1.0])
+chargestart_pos   = [023 305 490 650 790 910 1020 1110 1205 1270];
+dischargestart_pos= [328 475 667 770 921 995 1125 1180 1285 1325];
+xline(chargestart_pos,'LineStyle',':','LineWidth',2.0,'Alpha',0.5,'Color',[1.0 0.4 0.6])
+xline(dischargestart_pos,'LineStyle','--','LineWidth',2.0,'Alpha',0.5,'Color', [0.2 0.7 0.3])
+
 
 charge_current = 45.6;
 discharge_current = -charge_current;
@@ -57,28 +51,24 @@ xlabel('Tabel idx [-]');
 ylabel('Current [A]');
 xline(switch_pos,'LineStyle','--','LineWidth',2.0,'Alpha',0.5,'Color',[0.4 0.6 1.0])
 
-% time_step = 4;
-% from_idx = floor(4 / time_step);
-% to_idx = floor( 1936 / time_step);
-% 
-% one_cycle_time = test_time(from_idx:to_idx);
-% one_cycle_voltage = voltage(from_idx:to_idx);
-% 
-% figure
-% plot(one_cycle_time, one_cycle_voltage);
-% grid on
-% 
 
+generate_sections = true;
 figure
-time_step = 4;
-max_time = test_time(length(test_time))
-min_time = test_time(1)
-step_time = (max_time - min_time) / length(test_time)
-stop_idx = switch_pos(3); %one cycle
+max_time = test_time(length(test_time));
+min_time = test_time(1);
+step_time = (max_time - min_time) / length(test_time);
 
-test_time_csv = test_time(1:stop_idx);
-voltage_csv = voltage(1:stop_idx);
-current_csv = combined_current(1:stop_idx);
+if generate_sections
+    start_idx = chargestart_pos(1);
+    stop_idx = chargestart_pos(2); %one charge cycle
+else
+    start_idx = 1;
+    stop_idx = switch_pos(3); %one cycle
+end
+
+test_time_csv = test_time(start_idx:stop_idx);
+voltage_csv = voltage(start_idx:stop_idx);
+current_csv = combined_current(start_idx:stop_idx);
 subplot(2,1,1), plot(test_time_csv, voltage_csv, 'LineWidth',3.0,'Color',[0.4 0.2 0.6] )
 hold on
 grid on
@@ -94,6 +84,4 @@ grid minor
 
 system('echo time,voltage,current> batterydata.csv')
 newcsv = [test_time_csv' ; voltage_csv'; current_csv']';
-writematrix(newcsv,'batterydata.csv','WriteMode','append');
-
-
+    writematrix(newcsv,'batterydata.csv','WriteMode','append');
