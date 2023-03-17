@@ -72,11 +72,13 @@ type TGene = Vec<f32>;
 // the model needs capacity in Farad and Resistance in Ohm
 //let GENE_MAX :Vec<f32>= vec![10000.0, 100.0]; //not const since vec![] is dynamic alloc
 //let GENE_MIN :Vec<f32>= vec![0.1, 0.1]; //not const since vec![] is dynamic alloc
-static GENE_MAX: &'static [f32] = &[10000.0, 100.0]; //cap, res
-static GENE_MIN: &'static [f32] = &[0.1, 0.1];
+static GENE_MAX: &'static [f32] = &[10000000.0, 10.0, 1000000.0]; //cap, res, charge_zero
+static GENE_MIN: &'static [f32] = &[1000.0, 0.00001, 0.0001];
 /// freepascal: const GENE_MIN : Array [0..1] of single = (0.1, 0.1);
-
-const NUM_OF_GENES: u16 = 2;
+const cap_idx:usize = 0;
+const res_idx:usize = 1;
+const qzero_idx:usize = 2;
+const NUM_OF_GENES: u16 = 3;
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub struct TIndivid {
@@ -110,6 +112,7 @@ fn calc_voltage(
     sim_data: TDataFrame,
     capacitance: f32,
     resistance: f32,
+    qzero:f32,
 ) -> f32 {
     //let mut file:File ;
 
@@ -125,7 +128,7 @@ fn calc_voltage(
     let steps_in_substeps: u32 = 4;
     let mut subdt: f32;
 
-    let mut q_cap: f32 = 0.0;
+    let mut q_cap: f32 = qzero;
     let mut v_cap: f32;
     let mut v_src: f32 = 0.0;
     let mut fitness: f32 = 0.0;
@@ -191,7 +194,10 @@ impl TIndivid {
         max_gen: u32,
         mutation_intensity: f32,
         mutation_rate: f32,
+        mut_gen_scaler:f32,
+        mut_gen_offset:f32
     ) {
+        let current_intensity_ratio:f32 = ((1.0 - (current_gen as f32) / (max_gen as f32))*mut_gen_scaler + mut_gen_offset) * mutation_intensity; 
         for p in 0..self.genes.len() {
             let maxval: f32 = GENE_MAX[p as usize];
             let minval: f32 = GENE_MIN[p as usize];
@@ -199,7 +205,8 @@ impl TIndivid {
             let mut noise: f32 = 0.0;
             let tal = self.genes[p].to_owned();
             if get_random() < mutation_rate {
-                noise = ((1.0 -(current_gen as f32) / (max_gen as f32))) * mutation_intensity * delta;
+                //noise = (((current_gen as f32) / (max_gen as f32))) * mutation_intensity * delta;
+                noise = current_intensity_ratio * delta;
                     //- (delta * 0.5 as f32);
                     self.genes[p] = random_limited(tal - noise, tal + noise);
             } else {
@@ -225,9 +232,10 @@ impl TIndivid {
         filepath: &str,
         store_result: bool,
     ) -> f32 {
-        let capacitance: f32 = self.genes[0];
-        let resistance: f32 = self.genes[1];
-        self.fitness = calc_voltage(filepath, store_result, sim_data, capacitance, resistance);
+        let capacitance: f32 = self.genes[cap_idx];
+        let resistance: f32 = self.genes[res_idx];
+        let qzero: f32 = self.genes[qzero_idx];
+        self.fitness = calc_voltage(filepath, store_result, sim_data, capacitance, resistance,qzero);
         return self.fitness;
     }
     pub fn make_random_genome(&mut self) {
@@ -330,14 +338,15 @@ impl TPopulation {
                                                  // Open a file in write-only (ignoring errors).
                                                  // This creates the file if it does not exist (and empty the file if it exists).
         let mut file = File::create(temp_file).unwrap();
-        let _res = writeln!(&mut file, "fitness,capacitance,resistance");
+        let _res = writeln!(&mut file, "fitness,capacitance,resistance,qzero");
         for p in 0..self.population.len() {
             writeln!(
                 &mut file,
-                "{},{},{}",
+                "{},{},{},{}",
                 self.population[p].fitness,
-                self.population[p].genes[0],
-                self.population[p].genes[1]
+                self.population[p].genes[cap_idx],
+                self.population[p].genes[res_idx],
+                self.population[p].genes[qzero_idx]
             )
             .unwrap();
         }
@@ -345,12 +354,16 @@ impl TPopulation {
     }
 }
 
-const ELITE_PART: f32 = 0.1;
-const CROSSOVER_PART: f32 = 0.6;
-const POPULATION_SIZE: u32 = 500;
-const MAX_GENERATIONS: u32 = 20;
-const MUTATION_INTENSITY: f32 = 0.5;
+const ELITE_PART: f32 = 0.05;
+const CROSSOVER_PART: f32 = 0.2;
+const POPULATION_SIZE: u32 = 5000;
+const MAX_GENERATIONS: u32 = 50;
+const MUTATION_INTENSITY: f32 = 0.75;
 const MUTATION_RATE: f32 = 0.5;
+
+const MUT_GENERATION_SCALING: f32 = 0.75;
+const MUT_GENERATION_OFFSET:  f32 = 0.5;
+
 
 pub(crate) fn main() {
     println!("Read CSV");
@@ -384,20 +397,14 @@ pub(crate) fn main() {
         //println!(".");
         pop.sort_population();
         println!(
-            "  current best: fitness={}, Capacitance = {} , Resistance={}",
-            pop.population[0].fitness, pop.population[0].genes[0], pop.population[0].genes[1]
+            "  current best: fitness={}, Capacitance = {} , Resistance={} , Q_zero={}",
+            pop.population[0].fitness, pop.population[0].genes[cap_idx], pop.population[0].genes[res_idx], pop.population[0].genes[qzero_idx]
         );
         //pop.print_population();
         let elite_idx = (pop.population.len() as f32 * ELITE_PART) as u32;
         let crossover_idx = (pop.population.len() as f32 * CROSSOVER_PART) as u32;
         //let left_idx =pop.population.len() as u32;
-        for idx in elite_idx..(pop.population.len() as u32) {
-            //The part not elite is crossover
-            let src_idx1 = (get_random() * elite_idx as f32) as u32;
-            let src_idx2 = (get_random() * (pop.population.len() as f32)) as u32;
-            pop.population[idx as usize] = pop.item_crossover(src_idx1, src_idx2);
-            pop.population[idx as usize].limit_values();
-        }
+        //Mutation
         for idx in crossover_idx..(pop.population.len() as u32) {
             //part of crossover is mutated
             pop.population[idx as usize].mutate(
@@ -405,9 +412,20 @@ pub(crate) fn main() {
                 pop.max_generation,
                 pop.mutation_intensity,
                 pop.mutation_rate,
+                MUT_GENERATION_SCALING,
+                MUT_GENERATION_OFFSET
             );
             pop.population[idx as usize].limit_values();
         }
+        //crossover
+        for idx in elite_idx..(pop.population.len() as u32) {
+            //The part not elite is crossover
+            let src_idx1 = (get_random() * elite_idx as f32) as u32;
+            let src_idx2 = (get_random() * (pop.population.len() as f32)) as u32;
+            pop.population[idx as usize] = pop.item_crossover(src_idx1, src_idx2);
+            pop.population[idx as usize].limit_values();
+        }
+
         writeln!(
             &mut file,
             "{}, {}, {}",
@@ -418,13 +436,19 @@ pub(crate) fn main() {
 
     //Store results
     pop.dump_to_file("last_generation.csv");
-    println! {"Estimated capacitance {}, estimated resistance {}", pop.population[0].genes[0], pop.population[0].genes[1]};
+//    println! {"Estimated capacitance {}, estimated resistance {}", pop.population[0].genes[0], pop.population[0].genes[1]};
+    println!(
+        "  current best: fitness={}, Capacitance = {} , Resistance={} , Q_zero={}",
+        pop.population[0].fitness, pop.population[0].genes[cap_idx], pop.population[0].genes[res_idx], pop.population[0].genes[qzero_idx]
+    );
     let mut _fitness = calc_voltage(
         "best_result.csv",
         true,
         sim_data.to_owned(),
-        pop.population[0].genes[0],
-        pop.population[0].genes[1],
+        pop.population[0].genes[cap_idx],
+        pop.population[0].genes[res_idx],
+        pop.population[0].genes[qzero_idx],
     );
     println!("Done! (Caveat Emptor)");
 }
+
