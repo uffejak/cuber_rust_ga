@@ -40,6 +40,7 @@ pub fn make_random_genome(size: u16) -> Vec<f32> {
     return result;
 }
 
+#[cfg(feature = "model_equvalent_circuit_2nd_order_with_decay")]
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub struct TsimBattery {
     pub q_cap: f32,
@@ -51,7 +52,7 @@ pub struct TsimBattery {
     pub capacitance_loss: f32,
     pub stack_current: f32,
 }
-
+#[cfg(feature = "model_equvalent_circuit_2nd_order_with_decay")]
 impl TsimBattery {
     pub fn new(new_capacitance: f32, new_resistance: f32, new_capacitance_loss: f32) -> Self {
         TsimBattery {
@@ -66,20 +67,70 @@ impl TsimBattery {
         }
     }
 }
+
+
+#[cfg(feature = "model_equvalent_circuit_2nd_order")]
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
+pub struct TsimBattery {
+    pub q_cap: f32,
+    pub state_of_charge: f32,
+    pub v_external: f32,
+    pub v_internal: f32,
+    pub resistance: f32,
+    pub capacitance: f32,
+    pub stack_current: f32,
+}
+
+#[cfg(feature = "model_equvalent_circuit_2nd_order")]
+impl TsimBattery {
+    pub fn new(new_capacitance: f32, new_resistance: f32) -> Self {
+        TsimBattery {
+            q_cap: 0.0,
+            state_of_charge: 0.0,
+            v_external: 0.0,
+            v_internal: 0.0,
+            resistance: new_resistance,
+            capacitance: new_capacitance,
+            stack_current: 0.0,
+        }
+    }
+}
+
 //#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
 type TGene = Vec<f32>;
 
 // the model needs capacity in Farad and Resistance in Ohm
 //let GENE_MAX :Vec<f32>= vec![10000.0, 100.0]; //not const since vec![] is dynamic alloc
 //let GENE_MIN :Vec<f32>= vec![0.1, 0.1]; //not const since vec![] is dynamic alloc
+#[cfg(feature = "model_equvalent_circuit_2nd_order_with_decay")]
 static GENE_MAX: &'static [f32] = &[10000000.0, 10.0, 100000.0, 1.0]; //cap, res, charge_zero capacitance_decay(1.0=none)
+#[cfg(feature = "model_equvalent_circuit_2nd_order_with_decay")]
 static GENE_MIN: &'static [f32] = &[1000.0, 0.00001, 0.0001, 0.95];
-/// freepascal: const GENE_MIN : Array [0..1] of single = (0.1, 0.1);
+#[cfg(feature = "model_equvalent_circuit_2nd_order_with_decay")]
 const CAP_IDX:usize = 0;
-const res_idx:usize = 1;
-const qzero_idx:usize = 2;
+#[cfg(feature = "model_equvalent_circuit_2nd_order_with_decay")]
+const RES_IDX:usize = 1;
+#[cfg(feature = "model_equvalent_circuit_2nd_order_with_decay")]
+const QZERO_IDX:usize = 2;
+#[cfg(feature = "model_equvalent_circuit_2nd_order_with_decay")]
 const CAP_DECAY_IDX : usize = 3;
+#[cfg(feature = "model_equvalent_circuit_2nd_order_with_decay")]
 const NUM_OF_GENES: u16 = 4;
+
+
+#[cfg(feature = "model_equvalent_circuit_2nd_order")]
+static GENE_MAX: &'static [f32] = &[10000000.0, 10.0, 100000.0]; //cap, res, charge_zero 
+#[cfg(feature = "model_equvalent_circuit_2nd_order")]
+static GENE_MIN: &'static [f32] = &[1000.0, 0.00001, 0.0001];
+#[cfg(feature = "model_equvalent_circuit_2nd_order")]
+const CAP_IDX:usize = 0;
+#[cfg(feature = "model_equvalent_circuit_2nd_order")]
+const RES_IDX:usize = 1;
+#[cfg(feature = "model_equvalent_circuit_2nd_order")]
+const QZERO_IDX:usize = 2;
+#[cfg(feature = "model_equvalent_circuit_2nd_order")]
+const NUM_OF_GENES: u16 = 3;
+
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub struct TIndivid {
@@ -111,6 +162,7 @@ const WORST_FITNESS:f32 = 100000.0;
 const BEST_FITNESS:f32 = 0.001;
 
 //const CAP_DECAY:f32 = 0.999;
+#[cfg(feature = "model_equvalent_circuit_2nd_order_with_decay")]
 fn calc_voltage(
     filepath: &str,
     store_result: bool,
@@ -156,28 +208,13 @@ fn calc_voltage(
             if q_cap < 0.0 {
                 q_cap = 0.0;
             };
-            //     self.Q_cap = 0
-            //     self.V_cap = 0
-            //     self.I_charge = 0
-            //     print("Qcap < 0")
-            // else:
             v_cap = q_cap / runtime_capacitance;
 
             runtime_capacitance *= cap_decay*subdt;
             v_src = v_cap + i_charge * resistance;
-            // if self.V_stack < 0:
-            //     self.V_stack = 0;
-            //     print("Vstack < 0 with I_charge = " + str(self.I_charge))
-            //     self.I_charge = (self.V_stack-self.V_cap)/self.R_1;
-            //self.P_stack_input = self.V_stack * self.I_charge;
             state_of_charge = q_cap;
 
-            // self.Q_cap = self.Q_cap * CAP_LOSS
-            // self.C = self.C * CAP_LOSS # Simulate capacity loss
-
-            //println!("{}, {}, {}",clocktime, Q_cap, v_src);
             if store_result {
-                // Write a &str in the file (ignoring the result).
                 writeln!(&mut file, "{}, {}, {}", clocktime, q_cap, v_src).unwrap();
             }
         }
@@ -193,6 +230,74 @@ fn calc_voltage(
     if fitness > WORST_FITNESS  {fitness = WORST_FITNESS;}
     return fitness;
 }
+
+#[cfg(feature = "model_equvalent_circuit_2nd_order")]
+fn calc_voltage(
+    filepath: &str,
+    store_result: bool,
+    sim_data: TDataFrame,
+    capacitance: f32,
+    resistance: f32,
+    qzero:f32
+) -> f32 {
+    //let mut file:File ;
+
+    let mut temp_file = PathBuf::from("unused.txt"); //Hack since append does not work the same way
+
+    if store_result {
+        temp_file = PathBuf::from(filepath); //party like it is 198x
+    };
+    let mut file = File::create(temp_file).unwrap();
+
+    //let mut resultat:Vec<DataLineRecord> = vec![];
+    let mut substep: u32;
+    let steps_in_substeps: u32 = 4;
+    let mut subdt: f32;
+
+    let mut q_cap: f32 = qzero;
+    let mut v_cap: f32;
+    let mut v_src: f32 = 0.0;
+    let mut fitness: f32 = 0.0;
+    let mut state_of_charge: f32;
+    let mut clocktime: f32 = sim_data.rows[0].time;
+    let mut runtime_capacitance: f32 = capacitance;
+    for idx in 1..sim_data.rows.len() {
+        substep = 0;
+        let dt: f32 = sim_data.rows[idx].time - sim_data.rows[idx - 1].time;
+        subdt = dt / (steps_in_substeps as f32); // divide timestep
+                                                 //        let i_charge : f32 = (sim_data.rows[idx].current + sim_data.rows[idx-1].current) * 0.5;
+        let i_charge: f32 = sim_data.rows[idx].current;
+        let old_i_charge: f32 = sim_data.rows[idx - 1].current;
+        while substep < steps_in_substeps {
+            substep = substep + 1;
+            clocktime = clocktime + subdt;
+            q_cap = q_cap + subdt * 0.5 * (i_charge + old_i_charge);
+
+            if q_cap < 0.0 {
+                q_cap = 0.0;
+            };
+            v_cap = q_cap / runtime_capacitance;
+
+            v_src = v_cap + i_charge * resistance;
+            state_of_charge = q_cap;
+
+            if store_result {
+                writeln!(&mut file, "{}, {}, {}", clocktime, q_cap, v_src).unwrap();
+            }
+        }
+        let mut error: f32 = v_src - sim_data.rows[idx].voltage;
+        error = error * error * dt;
+        fitness = fitness + error;
+    }
+    //println!("Fitness = {}", fitness);
+    if store_result {
+        let mut _resultat = file.close(); //closing of files is handled different from most languages as a separate set of errors (see: https://docs.rs/close-file/latest/close_file/ )
+    }
+    if fitness < BEST_FITNESS {fitness = BEST_FITNESS}
+    if fitness > WORST_FITNESS  {fitness = WORST_FITNESS;}
+    return fitness;
+}
+
 
 impl TIndivid {
     pub fn new(genes: TGene, fitness: f32) -> Self {
@@ -236,6 +341,8 @@ impl TIndivid {
             }
         }
     }
+
+    #[cfg(feature = "model_equvalent_circuit_2nd_order_with_decay")]
     pub fn calc_fitness(
         &mut self,
         sim_data: TDataFrame,
@@ -243,12 +350,29 @@ impl TIndivid {
         store_result: bool,
     ) -> f32 {
         let capacitance: f32 = self.genes[CAP_IDX];
-        let resistance: f32 = self.genes[res_idx];
-        let qzero: f32 = self.genes[qzero_idx];
+        let resistance: f32 = self.genes[RES_IDX];
+        let qzero: f32 = self.genes[QZERO_IDX];
         let capdecay:f32 = self.genes[CAP_DECAY_IDX];
         self.fitness = calc_voltage(filepath, store_result, sim_data, capacitance, resistance,qzero,capdecay);
         return self.fitness;
     }
+
+
+    #[cfg(feature = "model_equvalent_circuit_2nd_order")]
+    pub fn calc_fitness(
+        &mut self,
+        sim_data: TDataFrame,
+        filepath: &str,
+        store_result: bool,
+    ) -> f32 {
+        let capacitance: f32 = self.genes[CAP_IDX];
+        let resistance: f32 = self.genes[RES_IDX];
+        let qzero: f32 = self.genes[QZERO_IDX];
+        self.fitness = calc_voltage(filepath, store_result, sim_data, capacitance, resistance,qzero);
+        return self.fitness;
+    }
+
+
     pub fn make_random_genome(&mut self) {
         self.genes.clear();
         self.genes = make_random_genome(NUM_OF_GENES);
@@ -344,6 +468,29 @@ impl TPopulation {
         self.population[dest_idx as usize].limit_values();
     }
 
+    #[cfg(feature = "model_equvalent_circuit_2nd_order_with_decay")]
+    pub fn dump_to_file(&mut self, filepath: &str) {
+        let temp_file = PathBuf::from(filepath); //party like it is 198x
+                                                 // Open a file in write-only (ignoring errors).
+                                                 // This creates the file if it does not exist (and empty the file if it exists).
+        let mut file = File::create(temp_file).unwrap();
+        let _res = writeln!(&mut file, "fitness,capacitance,resistance,qzero,cap_decay");
+        for p in 0..self.population.len() {
+            writeln!(
+                &mut file,
+                "{},{},{},{},{}",
+                self.population[p].fitness,
+                self.population[p].genes[CAP_IDX],
+                self.population[p].genes[RES_IDX],
+                self.population[p].genes[QZERO_IDX],
+                self.population[p].genes[CAP_DECAY_IDX]
+            )
+            .unwrap();
+        }
+        let mut _resultat = file.close(); //closing of files is handled different from most languages as a separate set of errors (see: https://docs.rs/close-file/latest/close_file/ )
+    }
+
+    #[cfg(feature = "model_equvalent_circuit_2nd_order")]
     pub fn dump_to_file(&mut self, filepath: &str) {
         let temp_file = PathBuf::from(filepath); //party like it is 198x
                                                  // Open a file in write-only (ignoring errors).
@@ -353,12 +500,11 @@ impl TPopulation {
         for p in 0..self.population.len() {
             writeln!(
                 &mut file,
-                "{},{},{},{},{}",
+                "{},{},{},{}",
                 self.population[p].fitness,
                 self.population[p].genes[CAP_IDX],
-                self.population[p].genes[res_idx],
-                self.population[p].genes[qzero_idx],
-                self.population[p].genes[CAP_DECAY_IDX]
+                self.population[p].genes[RES_IDX],
+                self.population[p].genes[QZERO_IDX],
             )
             .unwrap();
         }
@@ -374,6 +520,7 @@ const MUTATION_INTENSITY: f32 = 0.75;
 const MUTATION_RATE: f32 = 0.5;
 const MUT_GENERATION_SCALING: f32 = 0.75;
 const MUT_GENERATION_OFFSET:  f32 = 0.5;
+
 
 pub(crate) fn main() {
     println!("Read CSV");
@@ -406,11 +553,20 @@ pub(crate) fn main() {
         avg_fitness = avg_fitness / (pop.population.len() as f32);
         //println!(".");
         pop.sort_population();
+
+        #[cfg(feature = "model_equvalent_circuit_2nd_order_with_decay")]
         println!(
             "  current best: fitness={}, Capacitance = {} , Resistance={} , Q_zero={}, CAP_decay={}",
-            pop.population[0].fitness, pop.population[0].genes[CAP_IDX], pop.population[0].genes[res_idx], pop.population[0].genes[qzero_idx], pop.population[0].genes[CAP_DECAY_IDX]
+            pop.population[0].fitness, pop.population[0].genes[CAP_IDX], pop.population[0].genes[RES_IDX], pop.population[0].genes[QZERO_IDX], pop.population[0].genes[CAP_DECAY_IDX]
         );
-        //pop.print_population();
+
+        #[cfg(feature = "model_equvalent_circuit_2nd_order")]
+        println!(
+            "  current best: fitness={}, Capacitance = {} , Resistance={} , Q_zero={}",
+            pop.population[0].fitness, pop.population[0].genes[CAP_IDX], pop.population[0].genes[RES_IDX], pop.population[0].genes[QZERO_IDX]
+        );
+
+
         let elite_idx = (pop.population.len() as f32 * ELITE_PART) as u32;
         let crossover_idx = (pop.population.len() as f32 * CROSSOVER_PART) as u32;
         //let left_idx =pop.population.len() as u32;
@@ -446,16 +602,28 @@ pub(crate) fn main() {
 
     //Store results
     pop.dump_to_file("last_generation.csv");
-//    println! {"Estimated capacitance {}, estimated resistance {}", pop.population[0].genes[0], pop.population[0].genes[1]};
+
+    #[cfg(feature = "model_equvalent_circuit_2nd_order_with_decay")]
     let mut _fitness = calc_voltage(
         "best_result.csv",
         true,
         sim_data.to_owned(),
         pop.population[0].genes[CAP_IDX],
-        pop.population[0].genes[res_idx],
-        pop.population[0].genes[qzero_idx],
+        pop.population[0].genes[RES_IDX],
+        pop.population[0].genes[QZERO_IDX],
         pop.population[0].genes[CAP_DECAY_IDX],
     );
+
+    #[cfg(feature = "model_equvalent_circuit_2nd_order")]
+    let mut _fitness = calc_voltage(
+        "best_result.csv",
+        true,
+        sim_data.to_owned(),
+        pop.population[0].genes[CAP_IDX],
+        pop.population[0].genes[RES_IDX],
+        pop.population[0].genes[QZERO_IDX]
+    );
+
     println!("Done! (Caveat Emptor)");
 }
 

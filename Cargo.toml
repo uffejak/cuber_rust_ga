@@ -18,3 +18,11 @@ nd_array = "0.1.0"
 rand = "0.8.5"
 rand_distr = "0.4.3"
 serde ={version = "1.0.152" ,features = ["derive"]}
+
+[features]
+model_equvalent_circuit_2nd_order = []
+model_equvalent_circuit_2nd_order_with_decay = []
+
+# features by default
+default = ["model_equvalent_circuit_2nd_order"]
+
