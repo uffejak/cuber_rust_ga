@@ -6,18 +6,16 @@ Contains ideas borrowed from gradient descent and simulated annealing.
 
 # Conditional compilation
 
-Added conditional defines/features to Cargo TOML:
-[features]
-model_equvalent_circuit_2nd_order = []
-model_equvalent_circuit_2nd_order_with_decay = []
+Added conditional features to Cargo TOML:<br>
+`[features]`<br>
+`model_equvalent_circuit_2nd_order = []`<br>
+`model_equvalent_circuit_2nd_order_with_decay = []`<br>
+`default = ["model_equvalent_circuit_2nd_order"]`<br>
 
-"# features by default"
-default = ["model_equvalent_circuit_2nd_order"]
+“main.rs” will then include different sections of code based on features you choose.<br>
 
-“main.rs” will then include different sections of code based on features you choose.
-
-So when you need to implement new Rust models search for sections such as:
-"#[cfg(feature = "model_equvalent_circuit_2nd_order_with_decay")]"
+So when you need to implement new Rust models search for sections such as:<br>
+`#[cfg(feature = "model_equvalent_circuit_2nd_order_with_decay")]`<br>
 To see where you need to insert your code/ copy+modify existing code
 
 See also:
