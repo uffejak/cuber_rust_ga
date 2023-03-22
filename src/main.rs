@@ -5,6 +5,7 @@
 
 use rand::Rng;
 use std::fs::File;
+mod curfb_electrochem;
 
 use close_file::Closable;
 
@@ -298,6 +299,73 @@ fn calc_voltage(
     return fitness;
 }
 
+#[cfg(feature = "model_electrochemical")]
+fn calc_voltage(filepath: &str,
+    store_result: bool,
+    sim_data: TDataFrame,
+    diffusion_rate: f32,
+    rate_anolyte: f32,
+    rate_catholyte: f32,
+    stack_resistance: f32) -> f32
+    {
+        let mut temp_file = PathBuf::from("unused.txt"); //Hack since append does not work the same way
+
+        if store_result {
+            temp_file = PathBuf::from(filepath); //party like it is 198x
+        };
+        let mut file = File::create(temp_file).unwrap();
+
+        // Instantiate the model
+        let mut model = curfb_electrochem::ElectroChemModel::new(nominal_concentration, diffusion_rate, rate_anolyte, rate_catholyte, stack_resistance, sample_time);
+    
+        //let mut resultat:Vec<DataLineRecord> = vec![];
+        let mut substep: u32;
+        let steps_in_substeps: u32 = 4;
+        let mut subdt: f32;
+    
+        let mut q_cap: f32 = qzero;
+        let mut v_cap: f32;
+        let mut v_src: f32 = 0.0;
+        let mut fitness: f32 = 0.0;
+        let mut state_of_charge: f32;
+        let mut clocktime: f32 = sim_data.rows[0].time;
+        let mut runtime_capacitance: f32 = capacitance;
+        for idx in 1..sim_data.rows.len() {
+            substep = 0;
+            let dt: f32 = sim_data.rows[idx].time - sim_data.rows[idx - 1].time;
+            subdt = dt / (steps_in_substeps as f32); // divide timestep
+                                                     //        let i_charge : f32 = (sim_data.rows[idx].current + sim_data.rows[idx-1].current) * 0.5;
+            let i_charge: f32 = sim_data.rows[idx].current;
+            let old_i_charge: f32 = sim_data.rows[idx - 1].current;
+            while substep < steps_in_substeps {
+                substep = substep + 1;
+                clocktime = clocktime + subdt;
+                q_cap = q_cap + subdt * 0.5 * (i_charge + old_i_charge);
+    
+                if q_cap < 0.0 {
+                    q_cap = 0.0;
+                };
+                v_cap = q_cap / runtime_capacitance;
+    
+                v_src = v_cap + i_charge * resistance;
+                state_of_charge = q_cap;
+    
+                if store_result {
+                    writeln!(&mut file, "{}, {}, {}", clocktime, q_cap, v_src).unwrap();
+                }
+            }
+            let mut error: f32 = v_src - sim_data.rows[idx].voltage;
+            error = error * error * dt;
+            fitness = fitness + error;
+        }
+        //println!("Fitness = {}", fitness);
+        if store_result {
+            let mut _resultat = file.close(); //closing of files is handled different from most languages as a separate set of errors (see: https://docs.rs/close-file/latest/close_file/ )
+        }
+        if fitness < BEST_FITNESS {fitness = BEST_FITNESS}
+        if fitness > WORST_FITNESS  {fitness = WORST_FITNESS;}
+        return fitness;
+}
 
 impl TIndivid {
     pub fn new(genes: TGene, fitness: f32) -> Self {
