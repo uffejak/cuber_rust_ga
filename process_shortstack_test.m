@@ -8,6 +8,7 @@ test_time = m_shortstack(:,1);
 start_time = test_time(1);
 test_time = test_time - start_time;
 voltage = m_shortstack(:,8);
+flow = m_shortstack()
 xpos = [1:1:length(voltage)]';
 subplot(3,1,1), plot(test_time, voltage, 'LineWidth',3.0,'Color',[0.4 0.2 0.6] )
 hold on
@@ -52,7 +53,7 @@ ylabel('Current [A]');
 xline(switch_pos,'LineStyle','--','LineWidth',2.0,'Alpha',0.5,'Color',[0.4 0.6 1.0])
 
 
-generate_sections = true;
+generate_sections = false;
 figure
 max_time = test_time(length(test_time));
 min_time = test_time(1);

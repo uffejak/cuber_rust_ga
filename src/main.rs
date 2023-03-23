@@ -41,61 +41,6 @@ pub fn make_random_genome(size: u16) -> Vec<f32> {
     return result;
 }
 
-#[cfg(feature = "model_equvalent_circuit_2nd_order_with_decay")]
-#[derive(Debug, PartialEq, PartialOrd, Clone)]
-pub struct TsimBattery {
-    pub q_cap: f32,
-    pub state_of_charge: f32,
-    pub v_external: f32,
-    pub v_internal: f32,
-    pub resistance: f32,
-    pub capacitance: f32,
-    pub capacitance_loss: f32,
-    pub stack_current: f32,
-}
-#[cfg(feature = "model_equvalent_circuit_2nd_order_with_decay")]
-impl TsimBattery {
-    pub fn new(new_capacitance: f32, new_resistance: f32, new_capacitance_loss: f32) -> Self {
-        TsimBattery {
-            q_cap: 0.0,
-            state_of_charge: 0.0,
-            v_external: 0.0,
-            v_internal: 0.0,
-            resistance: new_resistance,
-            capacitance: new_capacitance,
-            capacitance_loss: new_capacitance_loss,
-            stack_current: 0.0,
-        }
-    }
-}
-
-
-#[cfg(feature = "model_equvalent_circuit_2nd_order")]
-#[derive(Debug, PartialEq, PartialOrd, Clone)]
-pub struct TsimBattery {
-    pub q_cap: f32,
-    pub state_of_charge: f32,
-    pub v_external: f32,
-    pub v_internal: f32,
-    pub resistance: f32,
-    pub capacitance: f32,
-    pub stack_current: f32,
-}
-
-#[cfg(feature = "model_equvalent_circuit_2nd_order")]
-impl TsimBattery {
-    pub fn new(new_capacitance: f32, new_resistance: f32) -> Self {
-        TsimBattery {
-            q_cap: 0.0,
-            state_of_charge: 0.0,
-            v_external: 0.0,
-            v_internal: 0.0,
-            resistance: new_resistance,
-            capacitance: new_capacitance,
-            stack_current: 0.0,
-        }
-    }
-}
 
 //#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
 type TGene = Vec<f32>;
@@ -132,6 +77,20 @@ const QZERO_IDX:usize = 2;
 #[cfg(feature = "model_equvalent_circuit_2nd_order")]
 const NUM_OF_GENES: u16 = 3;
 
+#[cfg(feature = "model_electrochemical")]
+static GENE_MAX: &'static [f32] = &[1e-9, 1e-5, 1e-5, 0.01]; //cap, res, charge_zero 
+#[cfg(feature = "model_electrochemical")]
+static GENE_MIN: &'static [f32] = &[1e-13, 1e-9, 1e-9, 1e-9];
+#[cfg(feature = "model_electrochemical")]
+const DIFFUSION_IDX:usize = 0;
+#[cfg(feature = "model_electrochemical")]
+const ANOLYTE_RATE_IDX:usize = 1;
+#[cfg(feature = "model_electrochemical")]
+const CATHOLYTE_RATE_IDX:usize = 2;
+#[cfg(feature = "model_electrochemical")]
+const RESISTANCE_IDX:usize = 3;
+#[cfg(feature = "model_electrochemical")]
+const NUM_OF_GENES: u16 = 4;
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub struct TIndivid {
@@ -160,7 +119,7 @@ pub fn read_csv(filepath: &str) -> TDataFrame {
 }
 
 const WORST_FITNESS:f32 = 100000.0;
-const BEST_FITNESS:f32 = 0.001;
+const BEST_FITNESS:f32 = 0.0001;
 
 //const CAP_DECAY:f32 = 0.999;
 #[cfg(feature = "model_equvalent_circuit_2nd_order_with_decay")]
@@ -299,6 +258,13 @@ fn calc_voltage(
     return fitness;
 }
 
+
+#[cfg(feature = "model_electrochemical")]
+const FLOW_RATE:f32 = 10.0 * 1.66* 1e-5; 
+
+#[cfg(feature = "model_electrochemical")]
+const NOMINAL_CONCENTRATION:f32 = 1000.0;
+
 #[cfg(feature = "model_electrochemical")]
 fn calc_voltage(filepath: &str,
     store_result: bool,
@@ -314,56 +280,45 @@ fn calc_voltage(filepath: &str,
             temp_file = PathBuf::from(filepath); //party like it is 198x
         };
         let mut file = File::create(temp_file).unwrap();
-
+        let mut clocktime:f32=0.0;
+        let mut fitness:f32 =0.0;
         // Instantiate the model
-        let mut model = curfb_electrochem::ElectroChemModel::new(nominal_concentration, diffusion_rate, rate_anolyte, rate_catholyte, stack_resistance, sample_time);
+        let mut model = curfb_electrochem::ElectroChemModel::new(NOMINAL_CONCENTRATION, 
+                                                                diffusion_rate, 
+                                                                rate_anolyte, 
+                                                                rate_catholyte, 
+                                                                stack_resistance, 
+                                                                1.0);
     
         //let mut resultat:Vec<DataLineRecord> = vec![];
-        let mut substep: u32;
-        let steps_in_substeps: u32 = 4;
-        let mut subdt: f32;
-    
-        let mut q_cap: f32 = qzero;
-        let mut v_cap: f32;
-        let mut v_src: f32 = 0.0;
-        let mut fitness: f32 = 0.0;
-        let mut state_of_charge: f32;
-        let mut clocktime: f32 = sim_data.rows[0].time;
-        let mut runtime_capacitance: f32 = capacitance;
+
         for idx in 1..sim_data.rows.len() {
-            substep = 0;
+            let mut voltage:f32=0.0;
+            let mut concentration:f32=0.0;
             let dt: f32 = sim_data.rows[idx].time - sim_data.rows[idx - 1].time;
-            subdt = dt / (steps_in_substeps as f32); // divide timestep
+            let i_charge: f32 = sim_data.rows[idx].current;
+            clocktime = clocktime + dt;
+            voltage= model.TimeStep( FLOW_RATE, i_charge);
                                                      //        let i_charge : f32 = (sim_data.rows[idx].current + sim_data.rows[idx-1].current) * 0.5;
             let i_charge: f32 = sim_data.rows[idx].current;
             let old_i_charge: f32 = sim_data.rows[idx - 1].current;
-            while substep < steps_in_substeps {
-                substep = substep + 1;
-                clocktime = clocktime + subdt;
-                q_cap = q_cap + subdt * 0.5 * (i_charge + old_i_charge);
-    
-                if q_cap < 0.0 {
-                    q_cap = 0.0;
-                };
-                v_cap = q_cap / runtime_capacitance;
-    
-                v_src = v_cap + i_charge * resistance;
-                state_of_charge = q_cap;
-    
-                if store_result {
-                    writeln!(&mut file, "{}, {}, {}", clocktime, q_cap, v_src).unwrap();
-                }
+//            println!("{:?}",voltage);
+            if voltage.is_nan() { voltage = 0.0;};
+
+            if store_result {
+                writeln!(&mut file, "{}, {}, {}", clocktime, 0.0 , voltage).unwrap();
             }
-            let mut error: f32 = v_src - sim_data.rows[idx].voltage;
+            let mut error: f32 = voltage - sim_data.rows[idx].voltage;
             error = error * error * dt;
             fitness = fitness + error;
         }
+
         //println!("Fitness = {}", fitness);
         if store_result {
             let mut _resultat = file.close(); //closing of files is handled different from most languages as a separate set of errors (see: https://docs.rs/close-file/latest/close_file/ )
         }
         if fitness < BEST_FITNESS {fitness = BEST_FITNESS}
-        if fitness > WORST_FITNESS  {fitness = WORST_FITNESS;}
+        if fitness > WORST_FITNESS {fitness = WORST_FITNESS;}
         return fitness;
 }
 
@@ -437,6 +392,22 @@ impl TIndivid {
         let resistance: f32 = self.genes[RES_IDX];
         let qzero: f32 = self.genes[QZERO_IDX];
         self.fitness = calc_voltage(filepath, store_result, sim_data, capacitance, resistance,qzero);
+        return self.fitness;
+    }
+
+    #[cfg(feature = "model_electrochemical")]
+    pub fn calc_fitness(
+        &mut self,
+        sim_data: TDataFrame,
+        filepath: &str,
+        store_result: bool,
+    ) -> f32 {
+        //let concentration: f32 = self.genes[CONCENTRATION_IDX];
+        let diffusion_rate: f32 = self.genes[DIFFUSION_IDX];
+        let rate_anolyte: f32 = self.genes[ANOLYTE_RATE_IDX];
+        let rate_catholyte: f32 = self.genes[CATHOLYTE_RATE_IDX];
+        let stack_resistance: f32 = self.genes[RESISTANCE_IDX];
+        self.fitness = calc_voltage(filepath, store_result, sim_data , diffusion_rate, rate_anolyte,rate_catholyte,stack_resistance);
         return self.fitness;
     }
 
@@ -578,14 +549,41 @@ impl TPopulation {
         }
         let mut _resultat = file.close(); //closing of files is handled different from most languages as a separate set of errors (see: https://docs.rs/close-file/latest/close_file/ )
     }
+/*     let concentration: f32 = self.genes[CONCENTRATION_IDX];
+    let diffusion_rate: f32 = self.genes[DIFFUSION_IDX];
+    let rate_anolyte: f32 = self.genes[ANOLYTE_RATE_IDX];
+    let rate_catholyte: f32 = self.genes[CATHOLYTE_RATE_IDX];
+    let stack_resistance: f32 = self.genes[RESISTANCE_IDX];*/
+    #[cfg(feature = "model_electrochemical")]
+    pub fn dump_to_file(&mut self, filepath: &str) {
+        let temp_file = PathBuf::from(filepath); //party like it is 198x
+                                                 // Open a file in write-only (ignoring errors).
+                                                 // This creates the file if it does not exist (and empty the file if it exists).
+        let mut file = File::create(temp_file).unwrap();
+        let _res = writeln!(&mut file, "fitness,capacitance,resistance,qzero,cap_decay");
+        for p in 0..self.population.len() {
+            writeln!(
+                &mut file,
+                "{},{},{},{},{}",
+                self.population[p].fitness,
+                self.population[p].genes[DIFFUSION_IDX],
+                self.population[p].genes[ANOLYTE_RATE_IDX],
+                self.population[p].genes[CATHOLYTE_RATE_IDX],
+                self.population[p].genes[RESISTANCE_IDX]
+            )
+            .unwrap();
+        }
+        let mut _resultat = file.close(); //closing of files is handled different from most languages as a separate set of errors (see: https://docs.rs/close-file/latest/close_file/ )
+    }
+
 }
 
 const ELITE_PART: f32 = 0.05;
 const CROSSOVER_PART: f32 = 0.2;
-const POPULATION_SIZE: u32 = 4000;
-const MAX_GENERATIONS: u32 = 20;
+const POPULATION_SIZE: u32 = 1000;
+const MAX_GENERATIONS: u32 = 10;
 const MUTATION_INTENSITY: f32 = 0.75;
-const MUTATION_RATE: f32 = 0.5;
+const MUTATION_RATE: f32 = 0.75;
 const MUT_GENERATION_SCALING: f32 = 0.75;
 const MUT_GENERATION_OFFSET:  f32 = 0.5;
 
@@ -632,6 +630,16 @@ pub(crate) fn main() {
         println!(
             "  current best: fitness={}, Capacitance = {} , Resistance={} , Q_zero={}",
             pop.population[0].fitness, pop.population[0].genes[CAP_IDX], pop.population[0].genes[RES_IDX], pop.population[0].genes[QZERO_IDX]
+        );
+
+        #[cfg(feature = "model_electrochemical")]
+        println!(
+            "  current best: fitness={} , Diffusion={} , Anolyte_Rate={}, Catholyte_rate={}, Resistance={}",
+            pop.population[0].fitness, 
+            pop.population[0].genes[DIFFUSION_IDX], 
+            pop.population[0].genes[ANOLYTE_RATE_IDX], 
+            pop.population[0].genes[CATHOLYTE_RATE_IDX], 
+            pop.population[0].genes[RESISTANCE_IDX]
         );
 
 
@@ -692,6 +700,16 @@ pub(crate) fn main() {
         pop.population[0].genes[QZERO_IDX]
     );
 
+    #[cfg(feature = "model_electrochemical")]
+    let mut _fitness = calc_voltage(
+        "best_result.csv",
+        true,
+        sim_data.to_owned(),
+        pop.population[0].genes[DIFFUSION_IDX], 
+        pop.population[0].genes[ANOLYTE_RATE_IDX], 
+        pop.population[0].genes[CATHOLYTE_RATE_IDX], 
+        pop.population[0].genes[RESISTANCE_IDX]
+    );
     println!("Done! (Caveat Emptor)");
 }
 

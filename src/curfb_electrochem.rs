@@ -26,14 +26,18 @@ pub struct ElectroChemModel{
     kp:f32, // Rate constant, anolyte
     kn:f32, // Rate constant, catholyte
     Rstack:f32, // Ohmic stack resistance
-    dt:f32, // Sample time
+    pub dt:f32, // Sample time
     currentsigns:Array2<f32>
 }
 
 impl ElectroChemModel{ // Parameters to be estimated are diffusion_rate, rate_anolyte, rate_catholyte, stack_resistance 
     pub fn new(
-        nominal_concentration:f32,diffusion_rate:f32,rate_anolyte:f32,
-        rate_catholyte:f32,stack_resistance:f32, sample_time:f32
+        nominal_concentration:f32,
+		diffusion_rate:f32,
+		rate_anolyte:f32,
+        rate_catholyte:f32,
+		stack_resistance:f32, 
+		sample_time:f32
         ) -> Self{
 
         Self{
@@ -61,7 +65,10 @@ impl ElectroChemModel{ // Parameters to be estimated are diffusion_rate, rate_an
 
 impl ElectroChemModel{
 
-    pub fn TimeStep(&mut self,q:f32,I:f32){
+    pub fn TimeStep(&mut self,
+					q:f32, //Flow [m^3/s]
+					I:f32) -> f32 
+					{
         let Q:Array2<f32> = arr2(&[
             [q,0.0,0.0],
             [0.0,q,0.0],
@@ -93,9 +100,9 @@ impl ElectroChemModel{
         let Vnernst:f32 = R*323.15/F*(self.c_cell[[2,0]]/(self.c_cell[[0,0]]+1.0e-11)*(1.0/(self.c_cell[[1,0]]+1.0e-11))).ln();
 
         self.Voltage = self.N*(self.E0+Vbv+Vnernst+self.Rstack*self.S*I);
-        println!("Stack voltage is {:?}",self.Voltage);
-        println!("Anolyte C1 concentration is {:?}",self.c_cell[[0,0]]); 
-
+        //println!("Stack voltage is {:?}",self.Voltage);
+        //println!("Anolyte C1 concentration is {:?}",self.c_cell[[0,0]]); 
+        return self.Voltage;
     }
 }
 

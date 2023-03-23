@@ -27,5 +27,5 @@ model_equvalent_circuit_2nd_order_with_decay = []
 model_electrochemical = []
 
 # features by default
-default = ["model_equvalent_circuit_2nd_order"]
+default = ["model_electrochemical"]
 
