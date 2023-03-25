@@ -78,9 +78,9 @@ const QZERO_IDX:usize = 2;
 const NUM_OF_GENES: u16 = 3;
 
 #[cfg(feature = "model_electrochemical")]
-static GENE_MAX: &'static [f32] = &[1e-10, 1e-6, 1e-6, 0.1]; //cap, res, charge_zero 
+static GENE_MAX: &'static [f32] = &[1e-11, 1e-7, 1e-7, 1.0 , 2000.0, 0.25, 0.25 ]; 
 #[cfg(feature = "model_electrochemical")]
-static GENE_MIN: &'static [f32] = &[1e-13, 1e-8, 1e-8, 1e-9];
+static GENE_MIN: &'static [f32] = &[1e-13, 1e-8, 1e-8, 0.001, 750.0, 0.0, 0.0 ];
 #[cfg(feature = "model_electrochemical")]
 const DIFFUSION_IDX:usize = 0;
 #[cfg(feature = "model_electrochemical")]
@@ -90,7 +90,13 @@ const CATHOLYTE_RATE_IDX:usize = 2;
 #[cfg(feature = "model_electrochemical")]
 const RESISTANCE_IDX:usize = 3;
 #[cfg(feature = "model_electrochemical")]
-const NUM_OF_GENES: u16 = 4;
+const CONCENTRATION_IDX:usize = 4;
+#[cfg(feature = "model_electrochemical")]
+const CHARGEOFFSET_IDX:usize = 5;
+#[cfg(feature = "model_electrochemical")]
+const DISCHARGEOFFSET_IDX:usize = 6;
+#[cfg(feature = "model_electrochemical")]
+const NUM_OF_GENES: u16 = 7;
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub struct TIndivid {
@@ -260,10 +266,12 @@ fn calc_voltage(
 
 
 #[cfg(feature = "model_electrochemical")]
-const FLOW_RATE:f32 = 1.5 * 1.66* 1e-5; 
+//const FLOW_RATE:f32 = 1.5 * 1.66* 1e-5; 
+const FLOW_RATE:f32 = 5e-7; 
 
 #[cfg(feature = "model_electrochemical")]
-const NOMINAL_CONCENTRATION:f32 = 515.0;
+//const NOMINAL_CONCENTRATION:f32 = 515.0;
+const NOMINAL_CONCENTRATION:f32 = 600.0;
 
 #[cfg(feature = "model_electrochemical")]
 fn calc_voltage(filepath: &str,
@@ -272,7 +280,11 @@ fn calc_voltage(filepath: &str,
     diffusion_rate: f32,
     rate_anolyte: f32,
     rate_catholyte: f32,
-    stack_resistance: f32) -> f32
+    stack_resistance: f32,
+    start_concentration:f32,
+    charge_offset:f32,
+    discharge_offset:f32
+    ) -> f32
     {
         let mut temp_file = PathBuf::from("unused.txt"); //Hack since append does not work the same way
 
@@ -280,14 +292,16 @@ fn calc_voltage(filepath: &str,
             temp_file = PathBuf::from(filepath); //party like it is 198x
         };
         let mut file = File::create(temp_file).unwrap();
-        let mut clocktime:f32=0.0;
+        let mut clocktime:f32=sim_data.rows[0].time;
         let mut fitness:f32 =0.0;
         // Instantiate the model
-        let mut model = curfb_electrochem::ElectroChemModel::new(NOMINAL_CONCENTRATION, 
+        let mut model = curfb_electrochem::ElectroChemModel::new(start_concentration, 
                                                                 diffusion_rate, 
                                                                 rate_anolyte, 
                                                                 rate_catholyte, 
                                                                 stack_resistance, 
+                                                                charge_offset,
+                                                                discharge_offset,
                                                                 1.0);
     
         //let mut resultat:Vec<DataLineRecord> = vec![];
@@ -297,17 +311,20 @@ fn calc_voltage(filepath: &str,
             let mut concentration:f32=0.0;
             let dt: f32 = sim_data.rows[idx].time - sim_data.rows[idx - 1].time;
             let i_charge: f32 = sim_data.rows[idx].current;
-            clocktime = clocktime + dt;
-            voltage= model.TimeStep( FLOW_RATE, i_charge, dt as f32);
-                                                     //        let i_charge : f32 = (sim_data.rows[idx].current + sim_data.rows[idx-1].current) * 0.5;
-            let i_charge: f32 = sim_data.rows[idx].current;
             let old_i_charge: f32 = sim_data.rows[idx - 1].current;
+            let i_avg:f32= 0.5*(i_charge + old_i_charge);
+            clocktime = clocktime + dt;
+            voltage= model.TimeStep( FLOW_RATE, i_avg, dt as f32);
+                                                     //        let i_charge : f32 = (sim_data.rows[idx].current + sim_data.rows[idx-1].current) * 0.5;
+//            let i_charge: f32 = sim_data.rows[idx].current;
             let c1a:f32 = model.c_cell[[0,0]];
             let c1c:f32 = model.c_cell[[1,0]];
             let c2a:f32 = model.c_cell[[2,0]];
 //            println!("{:?}",voltage);
-            if voltage.is_nan() { voltage = 0.0;};
 
+            //voltage += 0.1;
+
+            if voltage.is_nan() { voltage = 0.0;};
             if store_result {
                 // writeln!(&mut file, "{}, {}, {}", clocktime, 0.0 , voltage).unwrap();
                 writeln!(&mut file, "{}, {}, {}, {}, {}, {}", clocktime, 0.0 , voltage, c1a, c1c, c2a).unwrap();
@@ -411,7 +428,12 @@ impl TIndivid {
         let rate_anolyte: f32 = self.genes[ANOLYTE_RATE_IDX];
         let rate_catholyte: f32 = self.genes[CATHOLYTE_RATE_IDX];
         let stack_resistance: f32 = self.genes[RESISTANCE_IDX];
-        self.fitness = calc_voltage(filepath, store_result, sim_data , diffusion_rate, rate_anolyte,rate_catholyte,stack_resistance);
+        let concentration: f32 = self.genes[CONCENTRATION_IDX];
+        let CO:f32 = self.genes[CHARGEOFFSET_IDX];
+        let DCO:f32 = self.genes[DISCHARGEOFFSET_IDX];
+        self.fitness = calc_voltage(filepath, store_result, sim_data , diffusion_rate, 
+                                    rate_anolyte,rate_catholyte,stack_resistance , concentration,
+                                     CO, DCO);
         return self.fitness;
     }
 
@@ -564,16 +586,19 @@ impl TPopulation {
                                                  // Open a file in write-only (ignoring errors).
                                                  // This creates the file if it does not exist (and empty the file if it exists).
         let mut file = File::create(temp_file).unwrap();
-        let _res = writeln!(&mut file, "fitness,capacitance,resistance,qzero,cap_decay");
+        let _res = writeln!(&mut file, "fitness,capacitance,resistance,qzero,cap_decay,concentration");
         for p in 0..self.population.len() {
             writeln!(
                 &mut file,
-                "{},{},{},{},{}",
+                "{},{},{},{},{},{},{},{}",
                 self.population[p].fitness,
                 self.population[p].genes[DIFFUSION_IDX],
                 self.population[p].genes[ANOLYTE_RATE_IDX],
                 self.population[p].genes[CATHOLYTE_RATE_IDX],
-                self.population[p].genes[RESISTANCE_IDX]
+                self.population[p].genes[RESISTANCE_IDX],
+                self.population[p].genes[CONCENTRATION_IDX],
+                self.population[p].genes[CHARGEOFFSET_IDX],
+                self.population[p].genes[DISCHARGEOFFSET_IDX]
             )
             .unwrap();
         }
@@ -584,11 +609,11 @@ impl TPopulation {
 
 const ELITE_PART: f32 = 0.05;
 const CROSSOVER_PART: f32 = 0.2;
-const POPULATION_SIZE: u32 = 20;
+const POPULATION_SIZE: u32 = 1000;
 const MAX_GENERATIONS: u32 = 10;
 const MUTATION_INTENSITY: f32 = 0.75;
 const MUTATION_RATE: f32 = 0.75;
-const MUT_GENERATION_SCALING: f32 = 0.75;
+const MUT_GENERATION_SCALING: f32 = 0.5;
 const MUT_GENERATION_OFFSET:  f32 = 0.5;
 
 
@@ -638,12 +663,15 @@ pub(crate) fn main() {
 
         #[cfg(feature = "model_electrochemical")]
         println!(
-            "  current best: fitness={} , Diffusion={} , Anolyte_Rate={}, Catholyte_rate={}, Resistance={}",
+            "Best: fitness={}, Diffuse={} , Anol_Rate={}, Cath_rate={}, R={}, Conc={}, Chrg_offset={}, Dischrg_offset={}",
             pop.population[0].fitness, 
             pop.population[0].genes[DIFFUSION_IDX], 
             pop.population[0].genes[ANOLYTE_RATE_IDX], 
             pop.population[0].genes[CATHOLYTE_RATE_IDX], 
-            pop.population[0].genes[RESISTANCE_IDX]
+            pop.population[0].genes[RESISTANCE_IDX],
+            pop.population[0].genes[CONCENTRATION_IDX],
+            pop.population[0].genes[CHARGEOFFSET_IDX],
+            pop.population[0].genes[DISCHARGEOFFSET_IDX]
         );
 
 
@@ -712,7 +740,10 @@ pub(crate) fn main() {
         pop.population[0].genes[DIFFUSION_IDX], 
         pop.population[0].genes[ANOLYTE_RATE_IDX], 
         pop.population[0].genes[CATHOLYTE_RATE_IDX], 
-        pop.population[0].genes[RESISTANCE_IDX]
+        pop.population[0].genes[RESISTANCE_IDX],
+        pop.population[0].genes[CONCENTRATION_IDX],
+        pop.population[0].genes[CHARGEOFFSET_IDX],
+        pop.population[0].genes[DISCHARGEOFFSET_IDX]
     );
     println!("Done! (Caveat Emptor)");
 }

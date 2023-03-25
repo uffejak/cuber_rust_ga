@@ -42,3 +42,4 @@ plot(gatime,gac1a,'--b')
 hold on
 plot(gatime,gac2a,'--r')
 hold off
+ylim([-2000 2000])
