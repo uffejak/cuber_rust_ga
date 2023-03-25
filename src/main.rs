@@ -78,9 +78,9 @@ const QZERO_IDX:usize = 2;
 const NUM_OF_GENES: u16 = 3;
 
 #[cfg(feature = "model_electrochemical")]
-static GENE_MAX: &'static [f32] = &[1e-9, 1e-5, 1e-5, 0.01]; //cap, res, charge_zero 
+static GENE_MAX: &'static [f32] = &[1e-10, 1e-6, 1e-6, 0.1]; //cap, res, charge_zero 
 #[cfg(feature = "model_electrochemical")]
-static GENE_MIN: &'static [f32] = &[1e-13, 1e-9, 1e-9, 1e-9];
+static GENE_MIN: &'static [f32] = &[1e-13, 1e-8, 1e-8, 1e-9];
 #[cfg(feature = "model_electrochemical")]
 const DIFFUSION_IDX:usize = 0;
 #[cfg(feature = "model_electrochemical")]
@@ -260,10 +260,10 @@ fn calc_voltage(
 
 
 #[cfg(feature = "model_electrochemical")]
-const FLOW_RATE:f32 = 10.0 * 1.66* 1e-5; 
+const FLOW_RATE:f32 = 1.5 * 1.66* 1e-5; 
 
 #[cfg(feature = "model_electrochemical")]
-const NOMINAL_CONCENTRATION:f32 = 1000.0;
+const NOMINAL_CONCENTRATION:f32 = 515.0;
 
 #[cfg(feature = "model_electrochemical")]
 fn calc_voltage(filepath: &str,
@@ -298,15 +298,19 @@ fn calc_voltage(filepath: &str,
             let dt: f32 = sim_data.rows[idx].time - sim_data.rows[idx - 1].time;
             let i_charge: f32 = sim_data.rows[idx].current;
             clocktime = clocktime + dt;
-            voltage= model.TimeStep( FLOW_RATE, i_charge);
+            voltage= model.TimeStep( FLOW_RATE, i_charge, dt as f32);
                                                      //        let i_charge : f32 = (sim_data.rows[idx].current + sim_data.rows[idx-1].current) * 0.5;
             let i_charge: f32 = sim_data.rows[idx].current;
             let old_i_charge: f32 = sim_data.rows[idx - 1].current;
+            let c1a:f32 = model.c_cell[[0,0]];
+            let c1c:f32 = model.c_cell[[1,0]];
+            let c2a:f32 = model.c_cell[[2,0]];
 //            println!("{:?}",voltage);
             if voltage.is_nan() { voltage = 0.0;};
 
             if store_result {
-                writeln!(&mut file, "{}, {}, {}", clocktime, 0.0 , voltage).unwrap();
+                // writeln!(&mut file, "{}, {}, {}", clocktime, 0.0 , voltage).unwrap();
+                writeln!(&mut file, "{}, {}, {}, {}, {}, {}", clocktime, 0.0 , voltage, c1a, c1c, c2a).unwrap();
             }
             let mut error: f32 = voltage - sim_data.rows[idx].voltage;
             error = error * error * dt;
@@ -580,7 +584,7 @@ impl TPopulation {
 
 const ELITE_PART: f32 = 0.05;
 const CROSSOVER_PART: f32 = 0.2;
-const POPULATION_SIZE: u32 = 1000;
+const POPULATION_SIZE: u32 = 20;
 const MAX_GENERATIONS: u32 = 10;
 const MUTATION_INTENSITY: f32 = 0.75;
 const MUTATION_RATE: f32 = 0.75;

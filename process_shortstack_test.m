@@ -64,7 +64,8 @@ if generate_sections
     stop_idx = chargestart_pos(2); %one charge cycle
 else
     start_idx = 1;
-    stop_idx = switch_pos(3); %one cycle
+%     stop_idx = switch_pos(3); %one cycle
+    stop_idx = switch_pos(11);
 end
 
 test_time_csv = test_time(start_idx:stop_idx);

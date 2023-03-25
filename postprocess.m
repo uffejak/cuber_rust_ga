@@ -19,6 +19,8 @@ ga_data = readmatrix('best_result.csv');
 simtime = simdata(:,1);
 simvoltage = simdata(:,2);
 
+gac1a = ga_data(:,4);
+gac2a = ga_data(:,6);
 gatime = ga_data(:,1);
 gacharge = ga_data(:,2);
 gavoltage = ga_data(:,3);
@@ -28,10 +30,15 @@ legend('Input','GA estimated result')
 grid on
 xlabel('Time [s]')
 ylabel('Voltage [V]')
+% hold on
+% subplot(2,1,2), plot(gatime,gacharge,'-')
+% legend('GA estimated result')
+% grid on
+% xlabel('Time [s]')
+% ylabel('Charge [C]')
+% hold on
+subplot(2,1,2)
+plot(gatime,gac1a,'--b')
 hold on
-subplot(2,1,2), plot(gatime,gacharge,'-')
-legend('GA estimated result')
-grid on
-xlabel('Time [s]')
-ylabel('Charge [C]')
-hold on
+plot(gatime,gac2a,'--r')
+hold off

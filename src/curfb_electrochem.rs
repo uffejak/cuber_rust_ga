@@ -11,7 +11,7 @@ const R:f32 = 8.314; // Ideal gas constant
 
 pub struct ElectroChemModel{
     c_nominal:f32, // Nominal total concentration
-    c_cell:Array2<f32>, // Cell concentrations
+    pub c_cell:Array2<f32>, // Cell concentrations
     c_tank:Array2<f32>, // Tank concentrations
     pub Voltage:f32, // Stack voltage
     SOC:f32, // State of Charge
@@ -46,11 +46,11 @@ impl ElectroChemModel{ // Parameters to be estimated are diffusion_rate, rate_an
             c_tank: arr2(&[[1.0],[1.0],[0.0]])*nominal_concentration,
             SOC: 0.0,
             SOH: 1.0,
-            V_cell: 9.5e-4,
-            V_tank: 0.01,
-            N: 1.0,
-            S: 0.15,
-            d: 1.27e-4,
+            V_cell: 1.68e-4,
+            V_tank: 0.003,
+            N: 3.0,
+            S: 0.067,
+            d: 5e-5,
             D: arr2(&[[0.0,0.0,0.0],[0.0,0.0,2.0*diffusion_rate],[0.0,0.0,-1.0*diffusion_rate],]),
             dt: sample_time,
             E0: 0.65,
@@ -67,15 +67,23 @@ impl ElectroChemModel{
 
     pub fn TimeStep(&mut self,
 					q:f32, //Flow [m^3/s]
-					I:f32) -> f32 
-					{
+					I:f32,
+                    dt:f32,    ) -> f32 
+                    {
+
+        self.dt = dt;
         let Q:Array2<f32> = arr2(&[
             [q,0.0,0.0],
             [0.0,q,0.0],
             [0.0,0.0,q],
             ]);
 
+        
         let mut currentpart:Array2<f32> = 1.0/(z*F)*&self.currentsigns*I;
+
+        // if I < 0.0{
+        //     currentpart = currentpart*1.7;
+        // }
 
         let flowpart:Array2<f32> = Q.dot(&(&self.c_tank-&self.c_cell));
 
@@ -87,17 +95,30 @@ impl ElectroChemModel{
         self.c_tank = &self.c_tank + dttank;
 
         // Butler-Volmer equations
-        let jp:f32 =  1.0/self.S*(F*self.kp*&self.c_cell[[2,0]].powf(0.5)*&self.c_cell[[0,0]].powf(0.5));
-        let jn:f32 =  1.0/self.S*(F*self.kn*&self.c_cell[[1,0]].powf(0.5)); 
+        let jp:f32 =  1.0/self.S*(F*self.kp*self.c_cell[[2,0]].powf(0.5)*self.c_cell[[0,0]].powf(0.5));
+        let jn:f32 =  1.0/self.S*(F*self.kn*self.c_cell[[1,0]].powf(0.5)); 
             
-        let logtermp:f32 = 1.0/(2.0*jp*self.S)*I + ((1.0/(2.0*jp*self.S)).powf(2.0)+1.0).sqrt();
-        let logtermn:f32 = 1.0/(2.0*jn*self.S)*I + ((1.0/(2.0*jn*self.S)).powf(2.0)+1.0).sqrt();
+        let logtermp:f32 = 1.0/(2.0*jp*self.S)*I + ((1.0/(2.0*jp*self.S)*I).powf(2.0)+1.0).sqrt();
+        let logtermn:f32 = 1.0/(2.0*jn*self.S)*I + ((1.0/(2.0*jn*self.S)*I).powf(2.0)+1.0).sqrt();
 
-        let Vp:f32 = 2.0*R*323.15/F*logtermp.ln();
-        let Vn:f32 = 2.0*R*323.15/F*logtermn.ln();
+        let mut Vp:f32 = 2.0*R*323.15/F*(logtermp+1e-10).ln();
+        if Vp.is_nan() || Vp.is_infinite(){
+            Vp = 0.0;
+        }
+
+        let mut Vn:f32 = 2.0*R*323.15/F*(logtermn+1e-10).ln();
+
+        if Vn.is_nan() || Vn.is_infinite(){
+            Vn = 0.0;
+        }
+        
         let Vbv:f32 = Vp-Vn;
 
-        let Vnernst:f32 = R*323.15/F*(self.c_cell[[2,0]]/(self.c_cell[[0,0]]+1.0e-11)*(1.0/(self.c_cell[[1,0]]+1.0e-11))).ln();
+        let mut Vnernst:f32 = R*323.15/F*(self.c_cell[[2,0]]/(self.c_cell[[0,0]]+1.0e-11)*(1.0/(self.c_cell[[1,0]]+1.0e-11))).ln();
+
+        if Vnernst.is_nan() || Vnernst.is_infinite(){
+            Vnernst = 0.0;
+        }
 
         self.Voltage = self.N*(self.E0+Vbv+Vnernst+self.Rstack*self.S*I);
         //println!("Stack voltage is {:?}",self.Voltage);
