@@ -2,13 +2,21 @@ clear all
 close all
 clc
 
-m_shortstack = readmatrix("WouterCellData.csv");
+% m_shortstack = readmatrix("WouterCellData.csv");
+m_shortstack = readmatrix("WouterCellData.xlsx");
 
 test_time = m_shortstack(:,3);
 start_time = test_time(1);
 test_time = test_time - start_time;
 voltage = m_shortstack(:,1);
 current = m_shortstack(:,2);
+
+Ts = 5;
+
+[voltage, TimeRegular] = resample(voltage,test_time,1/Ts,'linear');
+[current, test_time] = resample(current,test_time,1/Ts,'linear');
+
+%%
 %voltage_offset = voltage(1);
 %voltage = voltage - voltage_offset;
 %flow = m_shortstack();
@@ -76,7 +84,11 @@ step_time = (max_time - min_time) / length(test_time);
 % [current_regular, TimeRegular] = resample(combined_current,test_time,desiredFs,'linear');
 
 start_idx = 2;
-stop_idx = 2250;
+start_idx = 2480;
+% stop_idx = length(test_time);
+% stop_idx = 35000/Ts;
+stop_idx = 4830;
+% stop_idx = 7100;
 test_time_csv = test_time(start_idx:stop_idx);
 voltage_csv = voltage(start_idx:stop_idx);
 current_csv = current(start_idx:stop_idx);

@@ -20,16 +20,26 @@ simtime = simdata(:,1);
 simvoltage = simdata(:,2);
 
 gac1a = ga_data(:,4);
+gac1c = ga_data(:,5);
 gac2a = ga_data(:,6);
 gatime = ga_data(:,1);
 gacharge = ga_data(:,2);
 gavoltage = ga_data(:,3);
-figure
-subplot(2,1,1), plot(simtime,simvoltage,'.-',gatime,gavoltage,'-')
-legend('Input','GA estimated result')
+gacurrent = ga_data(:,end);
+figure(1)
+subplot(2,1,1)
+plot(simtime,simvoltage,'.-',gatime,gavoltage,'-')
+legend('Measured Voltage','Estimated Voltage')
 grid on
 xlabel('Time [s]')
 ylabel('Voltage [V]')
+xlim([gatime(1) gatime(end)])
+subplot(2,1,2)
+plot(gatime,gacurrent)
+grid on
+xlabel('Time [s]')
+ylabel('Current [A]')
+xlim([gatime(1) gatime(end)])
 % hold on
 % subplot(2,1,2), plot(gatime,gacharge,'-')
 % legend('GA estimated result')
@@ -37,9 +47,15 @@ ylabel('Voltage [V]')
 % xlabel('Time [s]')
 % ylabel('Charge [C]')
 % hold on
-subplot(2,1,2)
+figure(2)
 plot(gatime,gac1a,'--b')
 hold on
 plot(gatime,gac2a,'--r')
+plot(gatime,gac1c,'--k')
 hold off
-ylim([-2000 2000])
+xlim([gatime(1) gatime(end)])
+ylim([-100 1000])
+title('Tank Concentrations')
+xlabel('Time [s]')
+ylabel('Concentration [$\frac{mol}{m^3}$]')
+legend('$Cu^{1+}$ (anolyte)','$Cu^{2+}$','$Cu^{1+}$ (catholyte)')

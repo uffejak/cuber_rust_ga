@@ -13,7 +13,7 @@ const V_CELL: f32 = 0.0025 * 0.002;
 pub struct ElectroChemModel {
     c_nominal: f32,          // Nominal total concentration
     pub c_cell: Array2<f32>, // Cell concentrations
-    c_tank: Array2<f32>,     // Tank concentrations
+    pub c_tank: Array2<f32>,     // Tank concentrations
     pub Voltage: f32,        // Stack voltage
     SOC: f32,                // State of Charge
     SOH: f32,                // State of Health
@@ -36,7 +36,8 @@ pub struct ElectroChemModel {
 impl ElectroChemModel {
     // Parameters to be estimated are diffusion_rate, rate_anolyte, rate_catholyte, stack_resistance
     pub fn new(
-        nominal_concentration: f32,
+        nominal_anolyte: f32,
+        nominal_catholyte: f32,
         diffusion_rate: f32,
         rate_anolyte: f32,
         rate_catholyte: f32,
@@ -46,9 +47,9 @@ impl ElectroChemModel {
         sample_time: f32
     ) -> Self {
         Self {
-            c_nominal: nominal_concentration,
-            c_cell: arr2(&[[1.0], [1.0], [0.0]]) * nominal_concentration,
-            c_tank: arr2(&[[1.0], [1.0], [0.0]]) * nominal_concentration,
+            c_nominal: nominal_anolyte,
+            c_cell: arr2(&[[nominal_anolyte], [nominal_catholyte], [0.0]]),
+            c_tank: arr2(&[[nominal_anolyte], [nominal_catholyte], [0.0]]),
             SOC: 0.0,
             SOH: 1.0,
             V_cell: V_CELL, // 1.68e-4,
@@ -101,6 +102,14 @@ impl ElectroChemModel {
         //print!("DTC={} ", dtcell);
         let dttank = self.dt * (self.N * Q.dot(&(&self.c_cell - &self.c_tank))) / self.V_tank;
         self.c_cell = &self.c_cell + dtcell;
+        for ii in 0..self.c_cell.len(){
+            if self.c_cell[[ii,0]] < 0.0{
+                self.c_cell[[ii,0]] = 0.0;
+            }
+            if self.c_tank[[ii,0]] < 0.0{
+                self.c_tank[[ii,0]] = 0.0;
+            }
+        }
         self.c_tank = &self.c_tank + dttank;
 
         // Butler-Volmer equations
@@ -142,7 +151,13 @@ impl ElectroChemModel {
         }
 
 //        self.Voltage = self.N * (self.E0 + Vbv + Vnernst + self.Rstack * self.S * I);
-        self.Voltage = self.N * (self.E0 + Vbv + Vnernst + self.Rstack * I);
+        let mut Voffset:f32 = 0.0;
+        if I < 0.0{
+            Voffset = self.DisChargeOffset;
+        }else{
+            Voffset = self.ChargeOffset;
+        }
+        self.Voltage = self.N * (self.E0 + Vbv + Vnernst + self.Rstack * I + Voffset);
         //println!("Stack voltage is {:?}",self.Voltage);
         //println!("Anolyte C1 concentration is {:?}",self.c_cell[[0,0]]);
         return self.Voltage;
