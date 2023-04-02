@@ -39,6 +39,7 @@ plot(gatime,gacurrent)
 grid on
 xlabel('Time [s]')
 ylabel('Current [A]')
+% xlim([gatime(1) gatime(end)])
 xlim([gatime(1) gatime(end)])
 % hold on
 % subplot(2,1,2), plot(gatime,gacharge,'-')
@@ -48,10 +49,10 @@ xlim([gatime(1) gatime(end)])
 % ylabel('Charge [C]')
 % hold on
 figure(2)
-plot(gatime,gac1a,'--b')
+plot(gatime,gac1a,'--r')
 hold on
-plot(gatime,gac2a,'--r')
-plot(gatime,gac1c,'--k')
+plot(gatime,gac2a,'--k')
+plot(gatime,gac1c,'--b')
 hold off
 xlim([gatime(1) gatime(end)])
 ylim([-100 1000])

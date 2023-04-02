@@ -2,8 +2,8 @@ clear all
 close all
 clc
 
-% m_shortstack = readmatrix("WouterCellData.csv");
-m_shortstack = readmatrix("WouterCellData.xlsx");
+m_shortstack = readmatrix("WouterCellData.csv");
+% m_shortstack = readmatrix("WouterCellData.xlsx");
 
 test_time = m_shortstack(:,3);
 start_time = test_time(1);
@@ -83,12 +83,12 @@ step_time = (max_time - min_time) / length(test_time);
 % [voltage_regular, TimeRegular] = resample(voltage,test_time,desiredFs,'linear');
 % [current_regular, TimeRegular] = resample(combined_current,test_time,desiredFs,'linear');
 
-start_idx = 2;
+% start_idx = 2;
 start_idx = 2480;
 % stop_idx = length(test_time);
 % stop_idx = 35000/Ts;
-stop_idx = 4830;
-% stop_idx = 7100;
+% stop_idx = 4830;
+stop_idx = 7100;
 test_time_csv = test_time(start_idx:stop_idx);
 voltage_csv = voltage(start_idx:stop_idx);
 current_csv = current(start_idx:stop_idx);

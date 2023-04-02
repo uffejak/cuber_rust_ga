@@ -78,9 +78,9 @@ const QZERO_IDX:usize = 2;
 const NUM_OF_GENES: u16 = 3;
 
 #[cfg(feature = "model_electrochemical")]
-static GENE_MAX: &'static [f32] = &[1e-11, 1e-5, 1e-5, 1.0 , 2000.0, 0.0, 0.0, 2000.0]; 
+static GENE_MAX: &'static [f32] = &[1e-11, 1e-5, 1e-5, 1.0, 1000.0, 1.0, 1.0, 1000.0]; 
 #[cfg(feature = "model_electrochemical")]
-static GENE_MIN: &'static [f32] = &[1e-13, 1e-7, 1e-7, 0.001, 250.0, 0.0, 0.0, 250.0];
+static GENE_MIN: &'static [f32] = &[1e-13, 1e-7, 1e-7, 0.0, 0.0, 0.0, 0.0, 0.0];
 #[cfg(feature = "model_electrochemical")]
 const DIFFUSION_IDX:usize = 0;
 #[cfg(feature = "model_electrochemical")]
@@ -126,7 +126,7 @@ pub fn read_csv(filepath: &str) -> TDataFrame {
     TDataFrame { rows }
 }
 
-const WORST_FITNESS:f32 = 100000.0;
+const WORST_FITNESS:f32 = 10000000.0;
 const BEST_FITNESS:f32 = 0.0001;
 
 //const CAP_DECAY:f32 = 0.999;
@@ -275,6 +275,9 @@ const FLOW_RATE:f32 = 5e-7;
 //const NOMINAL_CONCENTRATION:f32 = 515.0;
 const NOMINAL_CONCENTRATION:f32 = 600.0;
 
+#[cfg(feature  = "model_electrochemical")]
+const ISDIFFUSION:bool = true;
+
 #[cfg(feature = "model_electrochemical")]
 fn calc_voltage(filepath: &str,
     store_result: bool,
@@ -286,7 +289,8 @@ fn calc_voltage(filepath: &str,
     anolyte_concentration:f32,
     catholyte_concentration:f32,
     charge_offset:f32,
-    discharge_offset:f32
+    discharge_offset:f32,
+    isdiffusioncell:bool
     ) -> f32
     {
         let mut temp_file = PathBuf::from("unused.txt"); //Hack since append does not work the same way
@@ -306,7 +310,8 @@ fn calc_voltage(filepath: &str,
                                                                 stack_resistance, 
                                                                 charge_offset,
                                                                 discharge_offset,
-                                                                1.0);
+                                                                1.0,
+                                                                isdiffusioncell);
     
         //let mut resultat:Vec<DataLineRecord> = vec![];
 
@@ -318,9 +323,15 @@ fn calc_voltage(filepath: &str,
             let old_i_charge: f32 = sim_data.rows[idx - 1].current;
             let i_avg:f32= 0.5*(i_charge + old_i_charge);
             clocktime = clocktime + dt;
+            if isdiffusioncell == false{
             voltage= model.TimeStep( FLOW_RATE, i_avg, dt as f32);
                                                      //        let i_charge : f32 = (sim_data.rows[idx].current + sim_data.rows[idx-1].current) * 0.5;
 //            let i_charge: f32 = sim_data.rows[idx].current;
+            }
+            else{
+                voltage = model.TimeStep_DiffCell(i_avg, dt as f32);
+
+            }
             let c1a:f32 = model.c_tank[[0,0]];
             let c1c:f32 = model.c_tank[[1,0]];
             let c2a:f32 = model.c_tank[[2,0]];
@@ -444,7 +455,7 @@ impl TIndivid {
         self.fitness = calc_voltage(filepath, store_result, sim_data , diffusion_rate, 
                                     rate_anolyte,rate_catholyte,stack_resistance , anolyte_concentration,
                                     catholyte_concentration,
-                                     CO, DCO);
+                                     CO, DCO,ISDIFFUSION);
         return self.fitness;
     }
 
@@ -622,7 +633,7 @@ impl TPopulation {
 const ELITE_PART: f32 = 0.05;
 const CROSSOVER_PART: f32 = 0.2;
 const POPULATION_SIZE: u32 = 1000;
-const MAX_GENERATIONS: u32 = 10;
+const MAX_GENERATIONS: u32 = 20;
 const MUTATION_INTENSITY: f32 = 0.75;
 const MUTATION_RATE: f32 = 0.75;
 const MUT_GENERATION_SCALING: f32 = 0.5;
@@ -757,7 +768,8 @@ pub(crate) fn main() {
         pop.population[0].genes[CONCENTRATION_ANOLYTE_IDX],
         pop.population[0].genes[CONCENTRATION_CATHOLYTE_IDX],
         pop.population[0].genes[CHARGEOFFSET_IDX],
-        pop.population[0].genes[DISCHARGEOFFSET_IDX]
+        pop.population[0].genes[DISCHARGEOFFSET_IDX],
+        ISDIFFUSION
     );
     println!("Done! (Caveat Emptor)");
 }
