@@ -2,7 +2,7 @@
 //This project uses The boost license.
 //https://www.boost.org/users/license.html
 //
-
+#![allow(warnings)]
 use rand::Rng;
 use std::fs::File;
 mod curfb_electrochem;
@@ -78,9 +78,9 @@ const QZERO_IDX:usize = 2;
 const NUM_OF_GENES: u16 = 3;
 
 #[cfg(feature = "model_electrochemical")]
-static GENE_MAX: &'static [f32] = &[1e-11, 1e-5, 1e-5, 1.0, 1000.0, 1.0, 1.0, 1000.0]; 
+static GENE_MAX: &'static [f32] = &[1e-11, 1.0, 1e-4, 5.0, 1200.0, 1.0, 1.0, 1200.0]; 
 #[cfg(feature = "model_electrochemical")]
-static GENE_MIN: &'static [f32] = &[1e-13, 1e-7, 1e-7, 0.0, 0.0, 0.0, 0.0, 0.0];
+static GENE_MIN: &'static [f32] = &[1e-13, 1e-3, 1e-7, 0.0, 0.0, -1.0, -1.0, 0.0];
 #[cfg(feature = "model_electrochemical")]
 const DIFFUSION_IDX:usize = 0;
 #[cfg(feature = "model_electrochemical")]
@@ -276,7 +276,7 @@ const FLOW_RATE:f32 = 5e-7;
 const NOMINAL_CONCENTRATION:f32 = 600.0;
 
 #[cfg(feature  = "model_electrochemical")]
-const ISDIFFUSION:bool = true;
+const ISDIFFUSION:bool = false;
 
 #[cfg(feature = "model_electrochemical")]
 fn calc_voltage(filepath: &str,
@@ -321,7 +321,14 @@ fn calc_voltage(filepath: &str,
             let dt: f32 = sim_data.rows[idx].time - sim_data.rows[idx - 1].time;
             let i_charge: f32 = sim_data.rows[idx].current;
             let old_i_charge: f32 = sim_data.rows[idx - 1].current;
-            let i_avg:f32= 0.5*(i_charge + old_i_charge);
+            let mut i_avg = 0.0;
+            if i_charge > 0.0{
+                i_avg = 0.5;
+            }
+            else{
+                i_avg = -0.5;
+            }
+            // let i_avg:f32= 0.5*(i_charge + old_i_charge);
             clocktime = clocktime + dt;
             if isdiffusioncell == false{
             voltage= model.TimeStep( FLOW_RATE, i_avg, dt as f32);

@@ -10,7 +10,7 @@ const F: f32 = 96485.0; // Faraday constant
 const R: f32 = 8.314; // Ideal gas constant
 const E_ZERO_25C: f32 = 0.65;
 const V_CELL: f32 = 0.0025 * 0.002; // Surface area times thickness
-const V_CELL_DIFF:f32 = 3e-6;
+const V_CELL_DIFF:f32 = 3.4e-6;
 pub struct ElectroChemModel {
     c_nominal: f32,          // Nominal total concentration
     pub c_cell: Array2<f32>, // Cell concentrations
@@ -59,7 +59,7 @@ impl ElectroChemModel {
                 V_tank: 50e-6,
                 N: 1.0,
                 S: 0.0025, //0.067,
-                d: 5e-5,
+                d: 33e-6,
                 D: arr2(&[
                     [0.0, 0.0, 0.0],
                     [0.0, 0.0, 2.0 * diffusion_rate],
@@ -86,7 +86,7 @@ impl ElectroChemModel {
                 V_tank: 50e-6,
                 N: 1.0,
                 S: 1e-4,
-                d: 5e-5,
+                d: 33e-6,
                 D: arr2(&[
                     [0.0, 0.0, 0.0],
                     [0.0, 0.0, 2.0 * diffusion_rate],
@@ -145,19 +145,19 @@ impl ElectroChemModel {
         };
         let jp: f32 = 1.0 / self.S
             * (F * self.kp * self.c_cell[[2, 0]].powf(0.5) * self.c_cell[[0, 0]].powf(0.5));
-        let jn: f32 = 1.0 / self.S * (F * self.kn * self.c_cell[[1, 0]].powf(0.5));
+        let jn: f32 = 1.0 / self.S * (F * self.kn * self.c_cell[[1, 0]].powf(0.5)*1000.0.powf(0.5));
 
         let logtermp: f32 = 1.0 / (2.0 * jp * self.S) * I
             + ((1.0 / (2.0 * jp * self.S) * I).powf(2.0) + 1.0).sqrt();
         let logtermn: f32 = 1.0 / (2.0 * jn * self.S) * I
             + ((1.0 / (2.0 * jn * self.S) * I).powf(2.0) + 1.0).sqrt();
 
-        let mut Vp: f32 = 2.0 * R * 323.15 / F * (logtermp + 1e-10).ln();
+        let mut Vp: f32 = 2.0 * R * 333.15 / F * (logtermp + 1e-10).ln();
         if Vp.is_nan() || Vp.is_infinite() {
             Vp = 0.0;
         }
 
-        let mut Vn: f32 = 2.0 * R * 323.15 / F * (logtermn + 1e-10).ln();
+        let mut Vn: f32 = 2.0 * R * 333.15 / F * (logtermn + 1e-10).ln();
 
         if Vn.is_nan() || Vn.is_infinite() {
             Vn = 0.0;
@@ -165,9 +165,12 @@ impl ElectroChemModel {
 
         let Vbv: f32 = Vp - Vn;
 
-        let mut Vnernst: f32 = R * 323.15 / F
-            * (self.c_cell[[2, 0]] / (self.c_cell[[0, 0]] + 1.0e-11)
-                * (1.0 / (self.c_cell[[1, 0]] + 1.0e-11)))
+        let mut Vnernst:f32 = 0.0;
+
+        
+        Vnernst = R * 333.15 / F
+            * (self.c_cell[[2, 0]] / (self.c_cell[[0, 0]])
+                * (1000.0/(self.c_cell[[1, 0]] + 1.0e-11)))
                 .ln();
 
         if Vnernst.is_nan() || Vnernst.is_infinite() {
@@ -196,7 +199,7 @@ impl ElectroChemModel {
 
         let currentpart: Array2<f32> = 1.0 / (z * F) * &self.currentsigns * I;
 
-        let diffpart: Array2<f32> = self.S / self.d * &self.D.dot(&self.c_cell) ;
+        let diffpart: Array2<f32> = self.S / self.d * &self.D.dot(&self.c_cell);
 
         let dtcell = self.dt * (diffpart + currentpart) / (self.V_cell);
         self.c_cell = &self.c_cell + dtcell;
@@ -217,21 +220,18 @@ impl ElectroChemModel {
         if (I > -MIN_CURRENT) && (I < 0.0) {
             I = -MIN_CURRENT;
         };
-        let jp: f32 = 1.0 / self.S
-            * (F * self.kp * self.c_cell[[2, 0]].powf(0.5) * self.c_cell[[0, 0]].powf(0.5));
-        let jn: f32 = 1.0 / self.S * (F * self.kn * self.c_cell[[1, 0]].powf(0.5));
+        let jp: f32 = 1.0 / self.S * (F * self.kp * self.c_cell[[2, 0]].powf(0.5) * self.c_cell[[0, 0]].powf(0.5));
+        let jn: f32 = 1.0 / self.S * (F * self.kn *1000.0.powf(0.5)*self.c_cell[[1, 0]].powf(0.5));
 
-        let logtermp: f32 = 1.0 / (2.0 * jp * self.S) * I
-            + ((1.0 / (2.0 * jp * self.S) * I).powf(2.0) + 1.0).sqrt();
-        let logtermn: f32 = 1.0 / (2.0 * jn * self.S) * I
-            + ((1.0 / (2.0 * jn * self.S) * I).powf(2.0) + 1.0).sqrt();
+        let logtermp: f32 = 1.0 / (2.0 * jp * self.S) * I + ((1.0 / (2.0 * jp * self.S) * I).powf(2.0) + 1.0).sqrt();
+        let logtermn: f32 = 1.0 / (2.0 * jn * self.S) * I + ((1.0 / (2.0 * jn * self.S) * I).powf(2.0) + 1.0).sqrt();
 
-        let mut Vp: f32 = 2.0 * R * 323.15 / F * (logtermp + 1e-10).ln();
+        let mut Vp: f32 = 2.0 * R * 333.15 / F * (logtermp).ln();
         if Vp.is_nan() || Vp.is_infinite() {
             Vp = 0.0;
         }
 
-        let mut Vn: f32 = 2.0 * R * 323.15 / F * (logtermn + 1e-10).ln();
+        let mut Vn: f32 = 2.0 * R * 333.15 / F * (logtermn).ln();
 
         if Vn.is_nan() || Vn.is_infinite() {
             Vn = 0.0;
@@ -239,10 +239,7 @@ impl ElectroChemModel {
 
         let Vbv: f32 = Vp - Vn;
 
-        let mut Vnernst: f32 = R * 323.15 / F
-            * (self.c_cell[[2, 0]] / (self.c_cell[[0, 0]] + 1.0e-11)
-                * (1.0 / (self.c_cell[[1, 0]] + 1.0e-11)))
-                .ln();
+        let mut Vnernst: f32 = R * 333.15 / F * ((self.c_cell[[2, 0]]*1000.0)/(self.c_cell[[0, 0]]*self.c_cell[[1, 0]])).ln();
 
         if Vnernst.is_nan() || Vnernst.is_infinite() {
             Vnernst = 0.0;

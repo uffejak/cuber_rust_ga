@@ -22,6 +22,7 @@ simvoltage = simdata(:,2);
 gac1a = ga_data(:,4);
 gac1c = ga_data(:,5);
 gac2a = ga_data(:,6);
+gac0c = 2000-gac1a-gac1c-gac2a;
 gatime = ga_data(:,1);
 gacharge = ga_data(:,2);
 gavoltage = ga_data(:,3);
@@ -53,10 +54,14 @@ plot(gatime,gac1a,'--r')
 hold on
 plot(gatime,gac2a,'--k')
 plot(gatime,gac1c,'--b')
+plot(gatime,gac0c,'--m')
 hold off
 xlim([gatime(1) gatime(end)])
 ylim([-100 1000])
 title('Tank Concentrations')
 xlabel('Time [s]')
 ylabel('Concentration [$\frac{mol}{m^3}$]')
-legend('$Cu^{1+}$ (anolyte)','$Cu^{2+}$','$Cu^{1+}$ (catholyte)')
+legend('$Cu^{1+}$ (anolyte)','$Cu^{2+}$','$Cu^{1+}$ (catholyte)','$Cu^0$ (catholyte)') 
+
+figure(3)
+plot(gatime,gac1a+gac2a+gac1c+gac0c)

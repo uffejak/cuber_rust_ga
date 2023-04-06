@@ -33,6 +33,8 @@ c_t = [molarity;molarity;0];
 c_c = [molarity;molarity;0];
 c0 = 0;
 
+Ival = 0.5;
+
 NumSteps = 1*3600;
 Q = 5e-7;
 cntr = 0;
@@ -47,13 +49,13 @@ fdyn = @(x,u) [x(1:3)+dt/V_cell*(u(1)*[1 0 0; 0 1 0; 0 0 1]*(x(4:6)-x(1:3))+1/(z
 % Exchange current functions
 
 jpfun = @(x,u) 1/S*(F*kp*x(3)^(1-a)*x(1)^a);
-jnfun = @(x,u) 1/S*(F*kn*x(2)^(a));
+jnfun = @(x,u) 1/S*(F*kn*x(2)^(a)*1000^(1-a));
 
 % Voltages
 
 Vpfun = @(x,u) 2*R*323.15/F*log(1/(2*jpfun(x,u)*S)*u(2)+sqrt((1/(2*jpfun(x,u)*S)*u(2))^2+1));
 Vnfun = @(x,u) 2*R*323.15/F*log(1/(2*jnfun(x,u)*S)*u(2)+sqrt((1/(2*jnfun(x,u)*S)*u(2))^2+1));
-Vnerfun = @(x,u) R*293.15/F*log((x(3)/x(1)+10e-12)*(1/((x(2)+10e-12))));
+Vnerfun = @(x,u) R*293.15/F*log((x(3)/x(1)+10e-12)*(1000/((x(2)+10e-12))));
 
 % Full voltage dynamics
 Vfun = @(x,u) N*(E0+Vnerfun(x,u)+Vpfun(x,u)-Vnfun(x,u)+Ri*u(2));
@@ -65,7 +67,7 @@ p = 1;
 % myPF = SimplePF(M,n,p,fdyn,Vfun,[c_c;c_t]);
 % xp(:,1) = [c_c;c_t];
 
-for ii = 1:length(I)
+for ii = 1:NumSteps
     SOC(ii) = c_t(3,ii)/(c_t(1,ii)+c_t(3,ii)); % SOC
     realSOC(ii) = c_t(3,ii)/(c_t(1,1)+c_t(3,1)); % SOC relative to initial
     
@@ -77,6 +79,28 @@ for ii = 1:length(I)
     
     % Cu(0) from mass balance (in weird unit)
     c0(:,ii+1) = 2*molarity-sum(c_c(:,ii+1));
+
+        if holup ~= 0
+        I(ii+1) = 0;
+        cntr = cntr + 1;
+        if cntr > waittime
+            I(ii+1) = sign(holup)*Ival;
+        end
+        if cntr > waittime+120
+            holup = 0;
+            cntr = 0;
+        end
+    else
+        if (SOC(ii) > 0.99)
+            holup = -1;
+            I(ii+1) = 0;
+        elseif (SOC(ii) < 0.01)
+            holup = 1;
+            I(ii+1) = 0;
+        else
+            I(ii+1) = I(ii);
+        end
+    end
     
     states = [c_c(:,ii+1);c_t(:,ii+1)];
    
