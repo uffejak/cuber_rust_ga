@@ -11,10 +11,16 @@ test_time = test_time - start_time;
 voltage = m_shortstack(:,1);
 current = m_shortstack(:,2);
 
-Ts = 5;
 
-[voltage, TimeRegular] = resample(voltage,test_time,1/Ts,'linear');
-[current, test_time] = resample(current,test_time,1/Ts,'linear');
+dsfac = 10/5;
+
+current = downsample(current,dsfac);
+voltage = downsample(voltage,dsfac);
+test_time = 0:5*dsfac:length(voltage)*5*dsfac-5*dsfac;
+test_time = test_time';
+
+% [voltage, TimeRegular] = resample(voltage,test_time,1/Ts,'linear');
+% [current, test_time] = resample(current,test_time,1/Ts,'linear');
 
 %%
 %voltage_offset = voltage(1);
@@ -83,17 +89,23 @@ step_time = (max_time - min_time) / length(test_time);
 % [voltage_regular, TimeRegular] = resample(voltage,test_time,desiredFs,'linear');
 % [current_regular, TimeRegular] = resample(combined_current,test_time,desiredFs,'linear');
 
-% start_idx = 2;
-start_idx = 2480;
+start_idx = 1;
+% start_idx = 9600/10;
+% start_idx = 12680/10;
+% start_idx = 2480;
 % stop_idx = length(test_time);
 % stop_idx = 35000/Ts;
 % stop_idx = 4830;
-stop_idx = 7100;
+stop_idx = length(voltage);
+% stop_idx = 12660/10;
+if stop_idx > length(voltage)
+    stop_idx = length(voltage);
+end
 test_time_csv = test_time(start_idx:stop_idx);
 voltage_csv = voltage(start_idx:stop_idx);
 current_csv = current(start_idx:stop_idx);
 
-subplot(2,1,1), plot(test_time_csv, voltage_csv, 'LineWidth',4.0,'Color',[0.4 0.2 0.6] )
+subplot(2,1,1), plot(test_time_csv, voltage_csv)
 hold on
 xlim("tight")
 xrange_used = xlim;
@@ -105,7 +117,8 @@ ylabel('Voltage [V]');
 grid minor
 %subplot(2,1,1), plot(test_time, voltage, 'LineWidth',1.0,'Color',[1.0 0.4 0.2],'LineStyle','--' )
 
-subplot(2,1,2), plot(test_time_csv, current_csv, 'LineWidth',4.0,'Color',[0.4 0.2 0.6] )
+subplot(2,1,2) 
+plot(test_time_csv, current_csv)
 hold on
 grid on
 xlabel('Time [s]');

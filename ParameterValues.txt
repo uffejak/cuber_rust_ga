@@ -1,0 +1,12 @@
+Fresh cell values, 3 cycles:
+Diffuse=0.0000000000031059651 , Anol_Rate=0.66909534, Cath_rate=0.00007347144, R=1.4388998, Conc_Ano=870.4907, Conc_Cath=883.7364, Chrg_offset=0.03185622, Dischrg_offset=-0.1906021
+
+Used cell values, 3 cycles:
+Diffuse=0.000000000007417333 , Anol_Rate=0.39278704, Cath_rate=0.000047111345, R=1.4722501, Conc_Ano=919.59625, Conc_Cath=807.8682, Chrg_offset=0.027528571, Dischrg_offset=-0.16205375
+
+Parameter bounds (diffusion coeff, ano rate, catho rate, Rstack, c1a, Voff_c, Voff_d, c1c)
+
+#[cfg(feature = "model_electrochemical")]
+static GENE_MAX: &'static [f32] = &[1e-11, 1.0, 1e-4, 5.0, 1200.0, 1.0, 1.0, 1200.0]; 
+#[cfg(feature = "model_electrochemical")]
+static GENE_MIN: &'static [f32] = &[1e-13, 1e-4, 1e-7, 0.0, 0.0, -1.0, -1.0, 0.0];

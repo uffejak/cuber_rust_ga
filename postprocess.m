@@ -5,7 +5,6 @@ close all
 clear all
 clc
 
-
 %post Genetic algorithm plots
 m3 = readmatrix("fitness.csv");
 figure
@@ -18,15 +17,16 @@ simdata = readmatrix('batterydata.csv');
 ga_data = readmatrix('best_result.csv');
 simtime = simdata(:,1);
 simvoltage = simdata(:,2);
-
 gac1a = ga_data(:,4);
 gac1c = ga_data(:,5);
 gac2a = ga_data(:,6);
+
 gac0c = 2000-gac1a-gac1c-gac2a;
 gatime = ga_data(:,1);
 gacharge = ga_data(:,2);
 gavoltage = ga_data(:,3);
 gacurrent = ga_data(:,end);
+
 figure(1)
 subplot(2,1,1)
 plot(simtime,simvoltage,'.-',gatime,gavoltage,'-')
@@ -40,28 +40,19 @@ plot(gatime,gacurrent)
 grid on
 xlabel('Time [s]')
 ylabel('Current [A]')
-% xlim([gatime(1) gatime(end)])
 xlim([gatime(1) gatime(end)])
-% hold on
-% subplot(2,1,2), plot(gatime,gacharge,'-')
-% legend('GA estimated result')
-% grid on
-% xlabel('Time [s]')
-% ylabel('Charge [C]')
-% hold on
+
 figure(2)
 plot(gatime,gac1a,'--r')
 hold on
 plot(gatime,gac2a,'--k')
 plot(gatime,gac1c,'--b')
-plot(gatime,gac0c,'--m')
 hold off
 xlim([gatime(1) gatime(end)])
-ylim([-100 1000])
 title('Tank Concentrations')
 xlabel('Time [s]')
 ylabel('Concentration [$\frac{mol}{m^3}$]')
-legend('$Cu^{1+}$ (anolyte)','$Cu^{2+}$','$Cu^{1+}$ (catholyte)','$Cu^0$ (catholyte)') 
+legend('$Cu^{1+}$ (anolyte)','$Cu^{2+}$ (anolyte)','$Cu^{1+}$ (catholyte)') 
 
 figure(3)
 plot(gatime,gac1a+gac2a+gac1c+gac0c)

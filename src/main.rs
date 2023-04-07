@@ -80,7 +80,7 @@ const NUM_OF_GENES: u16 = 3;
 #[cfg(feature = "model_electrochemical")]
 static GENE_MAX: &'static [f32] = &[1e-11, 1.0, 1e-4, 5.0, 1200.0, 1.0, 1.0, 1200.0]; 
 #[cfg(feature = "model_electrochemical")]
-static GENE_MIN: &'static [f32] = &[1e-13, 1e-3, 1e-7, 0.0, 0.0, -1.0, -1.0, 0.0];
+static GENE_MIN: &'static [f32] = &[1e-13, 1e-4, 1e-7, 0.0, 0.0, -1.0, -1.0, 0.0];
 #[cfg(feature = "model_electrochemical")]
 const DIFFUSION_IDX:usize = 0;
 #[cfg(feature = "model_electrochemical")]
@@ -276,7 +276,7 @@ const FLOW_RATE:f32 = 5e-7;
 const NOMINAL_CONCENTRATION:f32 = 600.0;
 
 #[cfg(feature  = "model_electrochemical")]
-const ISDIFFUSION:bool = false;
+const ISDIFFUSION:bool = true;
 
 #[cfg(feature = "model_electrochemical")]
 fn calc_voltage(filepath: &str,
@@ -322,11 +322,20 @@ fn calc_voltage(filepath: &str,
             let i_charge: f32 = sim_data.rows[idx].current;
             let old_i_charge: f32 = sim_data.rows[idx - 1].current;
             let mut i_avg = 0.0;
+            if isdiffusioncell == false{
             if i_charge > 0.0{
                 i_avg = 0.5;
             }
             else{
                 i_avg = -0.5;
+            }}
+            else{
+                if i_charge > 0.0{
+                    i_avg = 0.02;
+                }
+                else{
+                    i_avg = -0.02;
+                }
             }
             // let i_avg:f32= 0.5*(i_charge + old_i_charge);
             clocktime = clocktime + dt;
